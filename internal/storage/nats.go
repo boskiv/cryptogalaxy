@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -49,7 +50,7 @@ func GetNATS() *NATS {
 }
 
 // CommitTickers batch inserts input ticker data to nats.
-func (n *NATS) CommitTickers(data []Ticker) error {
+func (n *NATS) CommitTickers(_ context.Context, data []Ticker) error {
 	for i := range data {
 		ticker := data[i]
 
@@ -73,7 +74,7 @@ func (n *NATS) CommitTickers(data []Ticker) error {
 }
 
 // CommitTrades batch inserts input trade data to nats.
-func (n *NATS) CommitTrades(data []Trade) error {
+func (n *NATS) CommitTrades(_ context.Context, data []Trade) error {
 	for i := range data {
 		trade := data[i]
 

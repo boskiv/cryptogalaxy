@@ -169,108 +169,65 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 	for _, exch := range cfg.Exchanges {
 		markets := exch.Markets
 		retry := exch.Retry
+
+		var initializer func(context.Context, []config.Market, *config.Connection) error
 		switch exch.Name {
-		case "ftx":
-			appErrGroup.Go(func() error {
-				return exchange.StartFtx(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "coinbase-pro":
-			appErrGroup.Go(func() error {
-				return exchange.StartCoinbasePro(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "binance":
-			appErrGroup.Go(func() error {
-				return exchange.StartBinance(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "bitfinex":
-			appErrGroup.Go(func() error {
-				return exchange.StartBitfinex(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "bhex":
-			appErrGroup.Go(func() error {
-				return exchange.StartHbtc(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "huobi":
-			appErrGroup.Go(func() error {
-				return exchange.StartHuobi(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "gateio":
-			appErrGroup.Go(func() error {
-				return exchange.StartGateio(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "kucoin":
-			appErrGroup.Go(func() error {
-				return exchange.StartKucoin(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "bitstamp":
-			appErrGroup.Go(func() error {
-				return exchange.StartBitstamp(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "bybit":
-			appErrGroup.Go(func() error {
-				return exchange.StartBybit(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "probit":
-			appErrGroup.Go(func() error {
-				return exchange.StartProbit(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "gemini":
-			appErrGroup.Go(func() error {
-				return exchange.StartGemini(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "bitmart":
-			appErrGroup.Go(func() error {
-				return exchange.StartBitmart(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "digifinex":
-			appErrGroup.Go(func() error {
-				return exchange.StartDigifinex(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "ascendex":
-			appErrGroup.Go(func() error {
-				return exchange.StartAscendex(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "kraken":
-			appErrGroup.Go(func() error {
-				return exchange.StartKraken(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "binance-us":
-			appErrGroup.Go(func() error {
-				return exchange.StartBinanceUS(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "okex":
-			appErrGroup.Go(func() error {
-				return exchange.StartOKEx(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "ftx-us":
-			appErrGroup.Go(func() error {
-				return exchange.StartFtxUS(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "hitbtc":
-			appErrGroup.Go(func() error {
-				return exchange.StartHitBTC(appCtx, markets, &retry, &cfg.Connection)
-			})
 		case "aax":
-			appErrGroup.Go(func() error {
-				return exchange.StartAAX(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "bitrue":
-			appErrGroup.Go(func() error {
-				return exchange.StartBitrue(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "btse":
-			appErrGroup.Go(func() error {
-				return exchange.StartBTSE(appCtx, markets, &retry, &cfg.Connection)
-			})
-		case "mexo":
-			appErrGroup.Go(func() error {
-				return exchange.StartMexo(appCtx, markets, &retry, &cfg.Connection)
-			})
+			initializer = exchange.NewAAX
+		case "ascendex":
+			initializer = exchange.NewAscendex
 		case "bequant":
-			appErrGroup.Go(func() error {
-				return exchange.StartBequant(appCtx, markets, &retry, &cfg.Connection)
-			})
+			initializer = exchange.NewBequant
+		case "bhex":
+			initializer = exchange.NewHbtc
+		case "binance":
+			initializer = exchange.NewBinance
+		case "binance-us":
+			initializer = exchange.NewBinanceUS
+		case "bitfinex":
+			initializer = exchange.NewBitfinex
+		case "bitmart":
+			initializer = exchange.NewBitmart
+		case "bitrue":
+			initializer = exchange.NewBitrue
+		case "bitstamp":
+			initializer = exchange.NewBitstamp
+		case "btse":
+			initializer = exchange.NewBTSE
+		case "bybit":
+			initializer = exchange.NewBybit
+		case "coinbase-pro":
+			initializer = exchange.NewCoinbasePro
+		case "digifinex":
+			initializer = exchange.NewDigifinex
+		case "ftx":
+			initializer = exchange.NewFtx
+		case "ftx-us":
+			initializer = exchange.NewFtxUS
+		case "gateio":
+			initializer = exchange.NewGateio
+		case "gemini":
+			initializer = exchange.NewGemini
+		case "hitbtc":
+			initializer = exchange.NewHitBTC
+		case "huobi":
+			initializer = exchange.NewHuobi
+		case "kraken":
+			initializer = exchange.NewKraken
+		case "kucoin":
+			initializer = exchange.NewKucoin
+		case "mexo":
+			initializer = exchange.NewMexo
+		case "okex":
+			initializer = exchange.NewOKEx
+		case "probit":
+			initializer = exchange.NewProbit
+
 		}
+
+		appErrGroup.Go(func() error {
+			return exchange.Start(exch.Name, appCtx, markets, &retry, &cfg.Connection, initializer)
+		})
 	}
 
 	err = appErrGroup.Wait()

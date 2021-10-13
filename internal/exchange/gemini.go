@@ -2,7 +2,6 @@ package exchange
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -19,49 +18,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
-
-// StartGemini is for starting gemini exchange functions.
-func StartGemini(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
-
-	// If any error occurs or connection is lost, retry the exchange functions with a time gap till it reaches
-	// a configured number of retry.
-	// Retry counter will be reset back to zero if the elapsed time since the last retry is greater than the configured one.
-	var retryCount int
-	lastRetryTime := time.Now()
-
-	for {
-		err := newGemini(appCtx, markets, connCfg)
-		if err != nil {
-			log.Error().Err(err).Str("exchange", "gemini").Msg("error occurred")
-			if retry.Number == 0 {
-				return errors.New("not able to connect gemini exchange. please check the log for details")
-			}
-			if retry.ResetSec == 0 || time.Since(lastRetryTime).Seconds() < float64(retry.ResetSec) {
-				retryCount++
-			} else {
-				retryCount = 1
-			}
-			lastRetryTime = time.Now()
-			if retryCount > retry.Number {
-				err = fmt.Errorf("not able to connect gemini exchange even after %d retry", retry.Number)
-				log.Error().Err(err).Str("exchange", "gemini").Msg("")
-				return err
-			}
-
-			log.Error().Str("exchange", "gemini").Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds", retry.GapSec))
-			tick := time.NewTicker(time.Duration(retry.GapSec) * time.Second)
-			select {
-			case <-tick.C:
-				tick.Stop()
-
-			// Return, if there is any error from another exchange.
-			case <-appCtx.Done():
-				log.Error().Str("exchange", "gemini").Msg("ctx canceled, return from StartGemini")
-				return appCtx.Err()
-			}
-		}
-	}
-}
 
 type gemini struct {
 	ws                  connector.Websocket
@@ -122,14 +78,14 @@ type restRespGemini struct {
 	TickerPrice string `json:"last"`
 }
 
-func newGemini(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
+func NewGemini(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
 
 	// If any exchange function fails, force all the other functions to stop and return.
 	geminiErrGroup, ctx := errgroup.WithContext(appCtx)
 
-	g := gemini{connCfg: connCfg}
+	e := gemini{connCfg: connCfg}
 
-	err := g.cfgLookup(markets)
+	err := e.cfgLookup(markets)
 	if err != nil {
 		return err
 	}
@@ -146,79 +102,79 @@ func newGemini(appCtx context.Context, markets []config.Market, connCfg *config.
 			case "websocket":
 				if wsCount == 0 {
 
-					err = g.connectWs(ctx)
+					err = e.connectWs(ctx)
 					if err != nil {
 						return err
 					}
 
 					geminiErrGroup.Go(func() error {
-						return g.closeWsConnOnError(ctx)
+						return e.closeWsConnOnError(ctx)
 					})
 
 					geminiErrGroup.Go(func() error {
-						return g.readWs(ctx)
+						return e.readWs(ctx)
 					})
 
-					if g.ter != nil {
+					if e.ter != nil {
 						geminiErrGroup.Go(func() error {
-							return g.wsTickersToTerminal(ctx)
+							return storage.TickersToStorage(ctx, e.ter, e.wsTerTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return g.wsTradesToTerminal(ctx)
-						})
-					}
-
-					if g.mysql != nil {
-						geminiErrGroup.Go(func() error {
-							return g.wsTickersToMySQL(ctx)
-						})
-						geminiErrGroup.Go(func() error {
-							return g.wsTradesToMySQL(ctx)
+							return storage.TradesToStorage(ctx, e.ter, e.wsTerTrades)
 						})
 					}
 
-					if g.es != nil {
+					if e.mysql != nil {
 						geminiErrGroup.Go(func() error {
-							return g.wsTickersToES(ctx)
+							return storage.TickersToStorage(ctx, e.mysql, e.wsMysqlTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return g.wsTradesToES(ctx)
-						})
-					}
-
-					if g.influx != nil {
-						geminiErrGroup.Go(func() error {
-							return g.wsTickersToInflux(ctx)
-						})
-						geminiErrGroup.Go(func() error {
-							return g.wsTradesToInflux(ctx)
+							return storage.TradesToStorage(ctx, e.mysql, e.wsMysqlTrades)
 						})
 					}
 
-					if g.nats != nil {
+					if e.es != nil {
 						geminiErrGroup.Go(func() error {
-							return g.wsTickersToNats(ctx)
+							return storage.TickersToStorage(ctx, e.es, e.wsEsTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return g.wsTradesToNats(ctx)
-						})
-					}
-
-					if g.clickhouse != nil {
-						geminiErrGroup.Go(func() error {
-							return g.wsTickersToClickHouse(ctx)
-						})
-						geminiErrGroup.Go(func() error {
-							return g.wsTradesToClickHouse(ctx)
+							return storage.TradesToStorage(ctx, e.es, e.wsEsTrades)
 						})
 					}
 
-					if g.s3 != nil {
+					if e.influx != nil {
 						geminiErrGroup.Go(func() error {
-							return g.wsTickersToS3(ctx)
+							return storage.TickersToStorage(ctx, e.influx, e.wsInfluxTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return g.wsTradesToS3(ctx)
+							return storage.TradesToStorage(ctx, e.influx, e.wsInfluxTrades)
+						})
+					}
+
+					if e.nats != nil {
+						geminiErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, e.nats, e.wsNatsTickers)
+						})
+						geminiErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, e.nats, e.wsNatsTrades)
+						})
+					}
+
+					if e.clickhouse != nil {
+						geminiErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, e.clickhouse, e.wsClickHouseTickers)
+						})
+						geminiErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, e.clickhouse, e.wsClickHouseTrades)
+						})
+					}
+
+					if e.s3 != nil {
+						geminiErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, e.s3, e.wsS3Tickers)
+						})
+						geminiErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, e.s3, e.wsS3Trades)
 						})
 					}
 				}
@@ -227,7 +183,7 @@ func newGemini(appCtx context.Context, markets []config.Market, connCfg *config.
 				// so need to subscribe only once.
 				_, pres := subChannels[market.ID]
 				if !pres {
-					err = g.subWsChannel(market.ID)
+					err = e.subWsChannel(market.ID)
 					if err != nil {
 						return err
 					}
@@ -237,10 +193,11 @@ func newGemini(appCtx context.Context, markets []config.Market, connCfg *config.
 				wsCount++
 			case "rest":
 				if restCount == 0 {
-					err = g.connectRest()
+					client, err := connectRest("gemini")
 					if err != nil {
 						return err
 					}
+					e.rest = client
 				}
 
 				var mktCommitName string
@@ -253,7 +210,7 @@ func newGemini(appCtx context.Context, markets []config.Market, connCfg *config.
 				channel := info.Channel
 				restPingIntSec := info.RESTPingIntSec
 				geminiErrGroup.Go(func() error {
-					return g.processREST(ctx, mktID, mktCommitName, channel, restPingIntSec)
+					return e.processREST(ctx, mktID, mktCommitName, channel, restPingIntSec)
 				})
 
 				restCount++
@@ -268,10 +225,10 @@ func newGemini(appCtx context.Context, markets []config.Market, connCfg *config.
 	return nil
 }
 
-func (g *gemini) cfgLookup(markets []config.Market) error {
+func (e *gemini) cfgLookup(markets []config.Market) error {
 
 	// Configurations flat map is prepared for easy lookup later in the app.
-	g.cfgMap = make(map[cfgLookupKey]cfgLookupVal)
+	e.cfgMap = make(map[cfgLookupKey]cfgLookupVal)
 	for _, market := range markets {
 		var marketCommitName string
 		if market.CommitName != "" {
@@ -292,80 +249,80 @@ func (g *gemini) cfgLookup(markets []config.Market) error {
 				switch str {
 				case "terminal":
 					val.terStr = true
-					if g.ter == nil {
-						g.ter = storage.GetTerminal()
-						g.wsTerTickers = make(chan []storage.Ticker, 1)
-						g.wsTerTrades = make(chan []storage.Trade, 1)
+					if e.ter == nil {
+						e.ter = storage.GetTerminal()
+						e.wsTerTickers = make(chan []storage.Ticker, 1)
+						e.wsTerTrades = make(chan []storage.Trade, 1)
 					}
 				case "mysql":
 					val.mysqlStr = true
-					if g.mysql == nil {
-						g.mysql = storage.GetMySQL()
-						g.wsMysqlTickers = make(chan []storage.Ticker, 1)
-						g.wsMysqlTrades = make(chan []storage.Trade, 1)
+					if e.mysql == nil {
+						e.mysql = storage.GetMySQL()
+						e.wsMysqlTickers = make(chan []storage.Ticker, 1)
+						e.wsMysqlTrades = make(chan []storage.Trade, 1)
 					}
 				case "elastic_search":
 					val.esStr = true
-					if g.es == nil {
-						g.es = storage.GetElasticSearch()
-						g.wsEsTickers = make(chan []storage.Ticker, 1)
-						g.wsEsTrades = make(chan []storage.Trade, 1)
+					if e.es == nil {
+						e.es = storage.GetElasticSearch()
+						e.wsEsTickers = make(chan []storage.Ticker, 1)
+						e.wsEsTrades = make(chan []storage.Trade, 1)
 					}
 				case "influxdb":
 					val.influxStr = true
-					if g.influx == nil {
-						g.influx = storage.GetInfluxDB()
-						g.wsInfluxTickers = make(chan []storage.Ticker, 1)
-						g.wsInfluxTrades = make(chan []storage.Trade, 1)
+					if e.influx == nil {
+						e.influx = storage.GetInfluxDB()
+						e.wsInfluxTickers = make(chan []storage.Ticker, 1)
+						e.wsInfluxTrades = make(chan []storage.Trade, 1)
 					}
 				case "nats":
 					val.natsStr = true
-					if g.nats == nil {
-						g.nats = storage.GetNATS()
-						g.wsNatsTickers = make(chan []storage.Ticker, 1)
-						g.wsNatsTrades = make(chan []storage.Trade, 1)
+					if e.nats == nil {
+						e.nats = storage.GetNATS()
+						e.wsNatsTickers = make(chan []storage.Ticker, 1)
+						e.wsNatsTrades = make(chan []storage.Trade, 1)
 					}
 				case "clickhouse":
 					val.clickHouseStr = true
-					if g.clickhouse == nil {
-						g.clickhouse = storage.GetClickHouse()
-						g.wsClickHouseTickers = make(chan []storage.Ticker, 1)
-						g.wsClickHouseTrades = make(chan []storage.Trade, 1)
+					if e.clickhouse == nil {
+						e.clickhouse = storage.GetClickHouse()
+						e.wsClickHouseTickers = make(chan []storage.Ticker, 1)
+						e.wsClickHouseTrades = make(chan []storage.Trade, 1)
 					}
 				case "s3":
 					val.s3Str = true
-					if g.s3 == nil {
-						g.s3 = storage.GetS3()
-						g.wsS3Tickers = make(chan []storage.Ticker, 1)
-						g.wsS3Trades = make(chan []storage.Trade, 1)
+					if e.s3 == nil {
+						e.s3 = storage.GetS3()
+						e.wsS3Tickers = make(chan []storage.Ticker, 1)
+						e.wsS3Trades = make(chan []storage.Trade, 1)
 					}
 				}
 			}
 			val.mktCommitName = marketCommitName
-			g.cfgMap[key] = val
+			e.cfgMap[key] = val
 		}
 	}
 	return nil
 }
 
-func (g *gemini) connectWs(ctx context.Context) error {
-	ws, err := connector.NewWebsocket(ctx, &g.connCfg.WS, config.GeminiWebsocketURL)
+func (e *gemini) connectWs(ctx context.Context) error {
+	ws, err := connector.NewWebsocket(ctx, &e.connCfg.WS, config.GeminiWebsocketURL)
 	if err != nil {
 		if !errors.Is(err, ctx.Err()) {
 			logErrStack(err)
 		}
 		return err
 	}
-	g.ws = ws
+	e.ws = ws
 	log.Info().Str("exchange", "gemini").Msg("websocket connected")
 	return nil
 }
 
 // closeWsConnOnError closes websocket connection if there is any error in app context.
 // This will unblock all read and writes on websocket.
-func (g *gemini) closeWsConnOnError(ctx context.Context) error {
+func (e *gemini) closeWsConnOnError(ctx context.Context) error {
 	<-ctx.Done()
-	err := g.ws.Conn.Close()
+	err := e.ws.Conn.Close()
 	if err != nil {
 		return err
 	}
@@ -373,7 +330,7 @@ func (g *gemini) closeWsConnOnError(ctx context.Context) error {
 }
 
 // subWsChannel sends channel subscription requests to the websocket server.
-func (g *gemini) subWsChannel(market string) error {
+func (e *gemini) subWsChannel(market string) error {
 	channels := make([]wsSubSubGemini, 1)
 	channels[0].Name = "l2"
 	channels[0].Symbols = [1]string{market}
@@ -386,7 +343,7 @@ func (g *gemini) subWsChannel(market string) error {
 		logErrStack(err)
 		return err
 	}
-	err = g.ws.Write(frame)
+	err = e.ws.Write(frame)
 	if err != nil {
 		if errors.Is(err, net.ErrClosed) {
 			err = errors.New("context canceled")
@@ -399,36 +356,36 @@ func (g *gemini) subWsChannel(market string) error {
 }
 
 // readWs reads ticker / trade data from websocket channels.
-func (g *gemini) readWs(ctx context.Context) error {
+func (e *gemini) readWs(ctx context.Context) error {
 
 	// To avoid data race, creating a new local lookup map.
-	cfgLookup := make(map[cfgLookupKey]cfgLookupVal, len(g.cfgMap))
-	for k, v := range g.cfgMap {
+	cfgLookup := make(map[cfgLookupKey]cfgLookupVal, len(e.cfgMap))
+	for k, v := range e.cfgMap {
 		cfgLookup[k] = v
 	}
 
 	// See influxTimeVal struct doc for details.
 	itv := influxTimeVal{}
-	if g.influx != nil {
+	if e.influx != nil {
 		itv.TickerMap = make(map[string]int64)
 		itv.TradeMap = make(map[string]int64)
 	}
 
 	cd := commitData{
-		terTickers:        make([]storage.Ticker, 0, g.connCfg.Terminal.TickerCommitBuf),
-		terTrades:         make([]storage.Trade, 0, g.connCfg.Terminal.TradeCommitBuf),
-		mysqlTickers:      make([]storage.Ticker, 0, g.connCfg.MySQL.TickerCommitBuf),
-		mysqlTrades:       make([]storage.Trade, 0, g.connCfg.MySQL.TradeCommitBuf),
-		esTickers:         make([]storage.Ticker, 0, g.connCfg.ES.TickerCommitBuf),
-		esTrades:          make([]storage.Trade, 0, g.connCfg.ES.TradeCommitBuf),
-		influxTickers:     make([]storage.Ticker, 0, g.connCfg.InfluxDB.TickerCommitBuf),
-		influxTrades:      make([]storage.Trade, 0, g.connCfg.InfluxDB.TradeCommitBuf),
-		natsTickers:       make([]storage.Ticker, 0, g.connCfg.NATS.TickerCommitBuf),
-		natsTrades:        make([]storage.Trade, 0, g.connCfg.NATS.TradeCommitBuf),
-		clickHouseTickers: make([]storage.Ticker, 0, g.connCfg.ClickHouse.TickerCommitBuf),
-		clickHouseTrades:  make([]storage.Trade, 0, g.connCfg.ClickHouse.TradeCommitBuf),
-		s3Tickers:         make([]storage.Ticker, 0, g.connCfg.S3.TickerCommitBuf),
-		s3Trades:          make([]storage.Trade, 0, g.connCfg.S3.TradeCommitBuf),
+		terTickers:        make([]storage.Ticker, 0, e.connCfg.Terminal.TickerCommitBuf),
+		terTrades:         make([]storage.Trade, 0, e.connCfg.Terminal.TradeCommitBuf),
+		mysqlTickers:      make([]storage.Ticker, 0, e.connCfg.MySQL.TickerCommitBuf),
+		mysqlTrades:       make([]storage.Trade, 0, e.connCfg.MySQL.TradeCommitBuf),
+		esTickers:         make([]storage.Ticker, 0, e.connCfg.ES.TickerCommitBuf),
+		esTrades:          make([]storage.Trade, 0, e.connCfg.ES.TradeCommitBuf),
+		influxTickers:     make([]storage.Ticker, 0, e.connCfg.InfluxDB.TickerCommitBuf),
+		influxTrades:      make([]storage.Trade, 0, e.connCfg.InfluxDB.TradeCommitBuf),
+		natsTickers:       make([]storage.Ticker, 0, e.connCfg.NATS.TickerCommitBuf),
+		natsTrades:        make([]storage.Trade, 0, e.connCfg.NATS.TradeCommitBuf),
+		clickHouseTickers: make([]storage.Ticker, 0, e.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:  make([]storage.Trade, 0, e.connCfg.ClickHouse.TradeCommitBuf),
+		s3Tickers:         make([]storage.Ticker, 0, e.connCfg.S3.TickerCommitBuf),
+		s3Trades:          make([]storage.Trade, 0, e.connCfg.S3.TradeCommitBuf),
 	}
 
 	log.Debug().Str("exchange", "gemini").Str("func", "readWs").Msg("unlike other exchanges gemini does not send channel subscribed success message")
@@ -436,7 +393,7 @@ func (g *gemini) readWs(ctx context.Context) error {
 	for {
 		select {
 		default:
-			frame, err := g.ws.Read()
+			frame, err := e.ws.Read()
 			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
 					err = errors.New("context canceled")
@@ -475,7 +432,7 @@ func (g *gemini) readWs(ctx context.Context) error {
 					wr.Type = "ticker"
 					cfgLookup[key] = val
 
-					err := g.processWs(ctx, &wr, &cd, &itv)
+					err := e.processWs(ctx, &wr, &cd, &itv)
 					if err != nil {
 						return err
 					}
@@ -492,7 +449,7 @@ func (g *gemini) readWs(ctx context.Context) error {
 					wr.Type = "trade"
 					cfgLookup[key] = val
 
-					err := g.processWs(ctx, &wr, &cd, &itv)
+					err := e.processWs(ctx, &wr, &cd, &itv)
 					if err != nil {
 						return err
 					}
@@ -510,7 +467,7 @@ func (g *gemini) readWs(ctx context.Context) error {
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData, itv *influxTimeVal) error {
+func (e *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData, itv *influxTimeVal) error {
 	switch wr.Type {
 	case "ticker":
 		ticker := storage.Ticker{}
@@ -528,13 +485,13 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		ticker.Timestamp = time.Now().UTC()
 
 		key := cfgLookupKey{market: strings.ToUpper(ticker.MktID), channel: "ticker"}
-		val := g.cfgMap[key]
+		val := e.cfgMap[key]
 		if val.terStr {
 			cd.terTickersCount++
 			cd.terTickers = append(cd.terTickers, ticker)
-			if cd.terTickersCount == g.connCfg.Terminal.TickerCommitBuf {
+			if cd.terTickersCount == e.connCfg.Terminal.TickerCommitBuf {
 				select {
-				case g.wsTerTickers <- cd.terTickers:
+				case e.wsTerTickers <- cd.terTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -545,9 +502,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.mysqlStr {
 			cd.mysqlTickersCount++
 			cd.mysqlTickers = append(cd.mysqlTickers, ticker)
-			if cd.mysqlTickersCount == g.connCfg.MySQL.TickerCommitBuf {
+			if cd.mysqlTickersCount == e.connCfg.MySQL.TickerCommitBuf {
 				select {
-				case g.wsMysqlTickers <- cd.mysqlTickers:
+				case e.wsMysqlTickers <- cd.mysqlTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -558,9 +515,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.esStr {
 			cd.esTickersCount++
 			cd.esTickers = append(cd.esTickers, ticker)
-			if cd.esTickersCount == g.connCfg.ES.TickerCommitBuf {
+			if cd.esTickersCount == e.connCfg.ES.TickerCommitBuf {
 				select {
-				case g.wsEsTickers <- cd.esTickers:
+				case e.wsEsTickers <- cd.esTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -580,9 +537,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 
 			cd.influxTickersCount++
 			cd.influxTickers = append(cd.influxTickers, ticker)
-			if cd.influxTickersCount == g.connCfg.InfluxDB.TickerCommitBuf {
+			if cd.influxTickersCount == e.connCfg.InfluxDB.TickerCommitBuf {
 				select {
-				case g.wsInfluxTickers <- cd.influxTickers:
+				case e.wsInfluxTickers <- cd.influxTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -593,9 +550,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.natsStr {
 			cd.natsTickersCount++
 			cd.natsTickers = append(cd.natsTickers, ticker)
-			if cd.natsTickersCount == g.connCfg.NATS.TickerCommitBuf {
+			if cd.natsTickersCount == e.connCfg.NATS.TickerCommitBuf {
 				select {
-				case g.wsNatsTickers <- cd.natsTickers:
+				case e.wsNatsTickers <- cd.natsTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -606,9 +563,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.clickHouseStr {
 			cd.clickHouseTickersCount++
 			cd.clickHouseTickers = append(cd.clickHouseTickers, ticker)
-			if cd.clickHouseTickersCount == g.connCfg.ClickHouse.TickerCommitBuf {
+			if cd.clickHouseTickersCount == e.connCfg.ClickHouse.TickerCommitBuf {
 				select {
-				case g.wsClickHouseTickers <- cd.clickHouseTickers:
+				case e.wsClickHouseTickers <- cd.clickHouseTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -619,9 +576,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.s3Str {
 			cd.s3TickersCount++
 			cd.s3Tickers = append(cd.s3Tickers, ticker)
-			if cd.s3TickersCount == g.connCfg.S3.TickerCommitBuf {
+			if cd.s3TickersCount == e.connCfg.S3.TickerCommitBuf {
 				select {
-				case g.wsS3Tickers <- cd.s3Tickers:
+				case e.wsS3Tickers <- cd.s3Tickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -655,13 +612,13 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		trade.Timestamp = time.Unix(0, wr.Timestamp*int64(time.Millisecond)).UTC()
 
 		key := cfgLookupKey{market: strings.ToUpper(trade.MktID), channel: "trade"}
-		val := g.cfgMap[key]
+		val := e.cfgMap[key]
 		if val.terStr {
 			cd.terTradesCount++
 			cd.terTrades = append(cd.terTrades, trade)
-			if cd.terTradesCount == g.connCfg.Terminal.TradeCommitBuf {
+			if cd.terTradesCount == e.connCfg.Terminal.TradeCommitBuf {
 				select {
-				case g.wsTerTrades <- cd.terTrades:
+				case e.wsTerTrades <- cd.terTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -672,9 +629,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.mysqlStr {
 			cd.mysqlTradesCount++
 			cd.mysqlTrades = append(cd.mysqlTrades, trade)
-			if cd.mysqlTradesCount == g.connCfg.MySQL.TradeCommitBuf {
+			if cd.mysqlTradesCount == e.connCfg.MySQL.TradeCommitBuf {
 				select {
-				case g.wsMysqlTrades <- cd.mysqlTrades:
+				case e.wsMysqlTrades <- cd.mysqlTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -685,9 +642,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.esStr {
 			cd.esTradesCount++
 			cd.esTrades = append(cd.esTrades, trade)
-			if cd.esTradesCount == g.connCfg.ES.TradeCommitBuf {
+			if cd.esTradesCount == e.connCfg.ES.TradeCommitBuf {
 				select {
-				case g.wsEsTrades <- cd.esTrades:
+				case e.wsEsTrades <- cd.esTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -707,9 +664,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 
 			cd.influxTradesCount++
 			cd.influxTrades = append(cd.influxTrades, trade)
-			if cd.influxTradesCount == g.connCfg.InfluxDB.TradeCommitBuf {
+			if cd.influxTradesCount == e.connCfg.InfluxDB.TradeCommitBuf {
 				select {
-				case g.wsInfluxTrades <- cd.influxTrades:
+				case e.wsInfluxTrades <- cd.influxTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -720,9 +677,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.natsStr {
 			cd.natsTradesCount++
 			cd.natsTrades = append(cd.natsTrades, trade)
-			if cd.natsTradesCount == g.connCfg.NATS.TradeCommitBuf {
+			if cd.natsTradesCount == e.connCfg.NATS.TradeCommitBuf {
 				select {
-				case g.wsNatsTrades <- cd.natsTrades:
+				case e.wsNatsTrades <- cd.natsTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -733,9 +690,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.clickHouseStr {
 			cd.clickHouseTradesCount++
 			cd.clickHouseTrades = append(cd.clickHouseTrades, trade)
-			if cd.clickHouseTradesCount == g.connCfg.ClickHouse.TradeCommitBuf {
+			if cd.clickHouseTradesCount == e.connCfg.ClickHouse.TradeCommitBuf {
 				select {
-				case g.wsClickHouseTrades <- cd.clickHouseTrades:
+				case e.wsClickHouseTrades <- cd.clickHouseTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -746,9 +703,9 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 		if val.s3Str {
 			cd.s3TradesCount++
 			cd.s3Trades = append(cd.s3Trades, trade)
-			if cd.s3TradesCount == g.connCfg.S3.TradeCommitBuf {
+			if cd.s3TradesCount == e.connCfg.S3.TradeCommitBuf {
 				select {
-				case g.wsS3Trades <- cd.s3Trades:
+				case e.wsS3Trades <- cd.s3Trades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -760,242 +717,11 @@ func (g *gemini) processWs(ctx context.Context, wr *wsRespGemini, cd *commitData
 	return nil
 }
 
-func (g *gemini) wsTickersToTerminal(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsTerTickers:
-			g.ter.CommitTickers(data)
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTradesToTerminal(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsTerTrades:
-			g.ter.CommitTrades(data)
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTickersToMySQL(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsMysqlTickers:
-			err := g.mysql.CommitTickers(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTradesToMySQL(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsMysqlTrades:
-			err := g.mysql.CommitTrades(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTickersToES(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsEsTickers:
-			err := g.es.CommitTickers(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTradesToES(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsEsTrades:
-			err := g.es.CommitTrades(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTickersToInflux(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsInfluxTickers:
-			err := g.influx.CommitTickers(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTradesToInflux(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsInfluxTrades:
-			err := g.influx.CommitTrades(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTickersToNats(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsNatsTickers:
-			err := g.nats.CommitTickers(data)
-			if err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTradesToNats(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsNatsTrades:
-			err := g.nats.CommitTrades(data)
-			if err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTickersToClickHouse(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsClickHouseTickers:
-			err := g.clickhouse.CommitTickers(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTradesToClickHouse(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsClickHouseTrades:
-			err := g.clickhouse.CommitTrades(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTickersToS3(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsS3Tickers:
-			err := g.s3.CommitTickers(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) wsTradesToS3(ctx context.Context) error {
-	for {
-		select {
-		case data := <-g.wsS3Trades:
-			err := g.s3.CommitTrades(ctx, data)
-			if err != nil {
-				if !errors.Is(err, ctx.Err()) {
-					logErrStack(err)
-				}
-				return err
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (g *gemini) connectRest() error {
-	rest, err := connector.GetREST()
-	if err != nil {
-		logErrStack(err)
-		return err
-	}
-	g.rest = rest
-	log.Info().Str("exchange", "gemini").Msg("REST connection setup is done")
-	return nil
-}
-
 // processREST queries exchange for ticker / trade data through REST API in configured intervals,
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
+func (e *gemini) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
 	var (
 		req *http.Request
 		q   url.Values
@@ -1007,25 +733,25 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 	)
 
 	cd := commitData{
-		terTickers:        make([]storage.Ticker, 0, g.connCfg.Terminal.TickerCommitBuf),
-		terTrades:         make([]storage.Trade, 0, g.connCfg.Terminal.TradeCommitBuf),
-		mysqlTickers:      make([]storage.Ticker, 0, g.connCfg.MySQL.TickerCommitBuf),
-		mysqlTrades:       make([]storage.Trade, 0, g.connCfg.MySQL.TradeCommitBuf),
-		esTickers:         make([]storage.Ticker, 0, g.connCfg.ES.TickerCommitBuf),
-		esTrades:          make([]storage.Trade, 0, g.connCfg.ES.TradeCommitBuf),
-		influxTickers:     make([]storage.Ticker, 0, g.connCfg.InfluxDB.TickerCommitBuf),
-		influxTrades:      make([]storage.Trade, 0, g.connCfg.InfluxDB.TradeCommitBuf),
-		natsTickers:       make([]storage.Ticker, 0, g.connCfg.NATS.TickerCommitBuf),
-		natsTrades:        make([]storage.Trade, 0, g.connCfg.NATS.TradeCommitBuf),
-		clickHouseTickers: make([]storage.Ticker, 0, g.connCfg.ClickHouse.TickerCommitBuf),
-		clickHouseTrades:  make([]storage.Trade, 0, g.connCfg.ClickHouse.TradeCommitBuf),
-		s3Tickers:         make([]storage.Ticker, 0, g.connCfg.S3.TickerCommitBuf),
-		s3Trades:          make([]storage.Trade, 0, g.connCfg.S3.TradeCommitBuf),
+		terTickers:        make([]storage.Ticker, 0, e.connCfg.Terminal.TickerCommitBuf),
+		terTrades:         make([]storage.Trade, 0, e.connCfg.Terminal.TradeCommitBuf),
+		mysqlTickers:      make([]storage.Ticker, 0, e.connCfg.MySQL.TickerCommitBuf),
+		mysqlTrades:       make([]storage.Trade, 0, e.connCfg.MySQL.TradeCommitBuf),
+		esTickers:         make([]storage.Ticker, 0, e.connCfg.ES.TickerCommitBuf),
+		esTrades:          make([]storage.Trade, 0, e.connCfg.ES.TradeCommitBuf),
+		influxTickers:     make([]storage.Ticker, 0, e.connCfg.InfluxDB.TickerCommitBuf),
+		influxTrades:      make([]storage.Trade, 0, e.connCfg.InfluxDB.TradeCommitBuf),
+		natsTickers:       make([]storage.Ticker, 0, e.connCfg.NATS.TickerCommitBuf),
+		natsTrades:        make([]storage.Trade, 0, e.connCfg.NATS.TradeCommitBuf),
+		clickHouseTickers: make([]storage.Ticker, 0, e.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:  make([]storage.Trade, 0, e.connCfg.ClickHouse.TradeCommitBuf),
+		s3Tickers:         make([]storage.Ticker, 0, e.connCfg.S3.TickerCommitBuf),
+		s3Trades:          make([]storage.Trade, 0, e.connCfg.S3.TradeCommitBuf),
 	}
 
 	switch channel {
 	case "ticker":
-		req, err = g.rest.Request(ctx, "GET", config.GeminiRESTBaseURL+"pubticker/"+mktID)
+		req, err = e.rest.Request(ctx, "GET", config.GeminiRESTBaseURL+"pubticker/"+mktID)
 		if err != nil {
 			if !errors.Is(err, ctx.Err()) {
 				logErrStack(err)
@@ -1033,7 +759,7 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 			return err
 		}
 	case "trade":
-		req, err = g.rest.Request(ctx, "GET", config.GeminiRESTBaseURL+"trades/"+mktID)
+		req, err = e.rest.Request(ctx, "GET", config.GeminiRESTBaseURL+"trades/"+mktID)
 		if err != nil {
 			if !errors.Is(err, ctx.Err()) {
 				logErrStack(err)
@@ -1058,7 +784,7 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 
 			switch channel {
 			case "ticker":
-				resp, err := g.rest.Do(req)
+				resp, err := e.rest.Do(req)
 				if err != nil {
 					if !errors.Is(err, ctx.Err()) {
 						logErrStack(err)
@@ -1089,12 +815,12 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 				}
 
 				key := cfgLookupKey{market: strings.ToUpper(ticker.MktID), channel: "ticker"}
-				val := g.cfgMap[key]
+				val := e.cfgMap[key]
 				if val.terStr {
 					cd.terTickersCount++
 					cd.terTickers = append(cd.terTickers, ticker)
-					if cd.terTickersCount == g.connCfg.Terminal.TickerCommitBuf {
-						g.ter.CommitTickers(cd.terTickers)
+					if cd.terTickersCount == e.connCfg.Terminal.TickerCommitBuf {
+						e.ter.CommitTickers(ctx, cd.terTickers)
 						cd.terTickersCount = 0
 						cd.terTickers = nil
 					}
@@ -1102,8 +828,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.mysqlStr {
 					cd.mysqlTickersCount++
 					cd.mysqlTickers = append(cd.mysqlTickers, ticker)
-					if cd.mysqlTickersCount == g.connCfg.MySQL.TickerCommitBuf {
-						err := g.mysql.CommitTickers(ctx, cd.mysqlTickers)
+					if cd.mysqlTickersCount == e.connCfg.MySQL.TickerCommitBuf {
+						err := e.mysql.CommitTickers(ctx, cd.mysqlTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -1117,8 +843,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.esStr {
 					cd.esTickersCount++
 					cd.esTickers = append(cd.esTickers, ticker)
-					if cd.esTickersCount == g.connCfg.ES.TickerCommitBuf {
-						err := g.es.CommitTickers(ctx, cd.esTickers)
+					if cd.esTickersCount == e.connCfg.ES.TickerCommitBuf {
+						err := e.es.CommitTickers(ctx, cd.esTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -1139,8 +865,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 
 					cd.influxTickersCount++
 					cd.influxTickers = append(cd.influxTickers, ticker)
-					if cd.influxTickersCount == g.connCfg.InfluxDB.TickerCommitBuf {
-						err := g.influx.CommitTickers(ctx, cd.influxTickers)
+					if cd.influxTickersCount == e.connCfg.InfluxDB.TickerCommitBuf {
+						err := e.influx.CommitTickers(ctx, cd.influxTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -1154,8 +880,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.natsStr {
 					cd.natsTickersCount++
 					cd.natsTickers = append(cd.natsTickers, ticker)
-					if cd.natsTickersCount == g.connCfg.NATS.TickerCommitBuf {
-						err := g.nats.CommitTickers(cd.natsTickers)
+					if cd.natsTickersCount == e.connCfg.NATS.TickerCommitBuf {
+						err := e.nats.CommitTickers(ctx, cd.natsTickers)
 						if err != nil {
 							return err
 						}
@@ -1166,8 +892,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.clickHouseStr {
 					cd.clickHouseTickersCount++
 					cd.clickHouseTickers = append(cd.clickHouseTickers, ticker)
-					if cd.clickHouseTickersCount == g.connCfg.ClickHouse.TickerCommitBuf {
-						err := g.clickhouse.CommitTickers(ctx, cd.clickHouseTickers)
+					if cd.clickHouseTickersCount == e.connCfg.ClickHouse.TickerCommitBuf {
+						err := e.clickhouse.CommitTickers(ctx, cd.clickHouseTickers)
 						if err != nil {
 							return err
 						}
@@ -1178,8 +904,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.s3Str {
 					cd.s3TickersCount++
 					cd.s3Tickers = append(cd.s3Tickers, ticker)
-					if cd.s3TickersCount == g.connCfg.S3.TickerCommitBuf {
-						err := g.s3.CommitTickers(ctx, cd.s3Tickers)
+					if cd.s3TickersCount == e.connCfg.S3.TickerCommitBuf {
+						err := e.s3.CommitTickers(ctx, cd.s3Tickers)
 						if err != nil {
 							return err
 						}
@@ -1189,7 +915,7 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 				}
 			case "trade":
 				req.URL.RawQuery = q.Encode()
-				resp, err := g.rest.Do(req)
+				resp, err := e.rest.Do(req)
 				if err != nil {
 					if !errors.Is(err, ctx.Err()) {
 						logErrStack(err)
@@ -1235,12 +961,12 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 					}
 
 					key := cfgLookupKey{market: strings.ToUpper(trade.MktID), channel: "trade"}
-					val := g.cfgMap[key]
+					val := e.cfgMap[key]
 					if val.terStr {
 						cd.terTradesCount++
 						cd.terTrades = append(cd.terTrades, trade)
-						if cd.terTradesCount == g.connCfg.Terminal.TradeCommitBuf {
-							g.ter.CommitTrades(cd.terTrades)
+						if cd.terTradesCount == e.connCfg.Terminal.TradeCommitBuf {
+							e.ter.CommitTrades(ctx, cd.terTrades)
 							cd.terTradesCount = 0
 							cd.terTrades = nil
 						}
@@ -1248,8 +974,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.mysqlStr {
 						cd.mysqlTradesCount++
 						cd.mysqlTrades = append(cd.mysqlTrades, trade)
-						if cd.mysqlTradesCount == g.connCfg.MySQL.TradeCommitBuf {
-							err := g.mysql.CommitTrades(ctx, cd.mysqlTrades)
+						if cd.mysqlTradesCount == e.connCfg.MySQL.TradeCommitBuf {
+							err := e.mysql.CommitTrades(ctx, cd.mysqlTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1263,8 +989,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.esStr {
 						cd.esTradesCount++
 						cd.esTrades = append(cd.esTrades, trade)
-						if cd.esTradesCount == g.connCfg.ES.TradeCommitBuf {
-							err := g.es.CommitTrades(ctx, cd.esTrades)
+						if cd.esTradesCount == e.connCfg.ES.TradeCommitBuf {
+							err := e.es.CommitTrades(ctx, cd.esTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1285,8 +1011,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 
 						cd.influxTradesCount++
 						cd.influxTrades = append(cd.influxTrades, trade)
-						if cd.influxTradesCount == g.connCfg.InfluxDB.TradeCommitBuf {
-							err := g.influx.CommitTrades(ctx, cd.influxTrades)
+						if cd.influxTradesCount == e.connCfg.InfluxDB.TradeCommitBuf {
+							err := e.influx.CommitTrades(ctx, cd.influxTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1300,8 +1026,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.natsStr {
 						cd.natsTradesCount++
 						cd.natsTrades = append(cd.natsTrades, trade)
-						if cd.natsTradesCount == g.connCfg.NATS.TradeCommitBuf {
-							err := g.nats.CommitTrades(cd.natsTrades)
+						if cd.natsTradesCount == e.connCfg.NATS.TradeCommitBuf {
+							err := e.nats.CommitTrades(ctx, cd.natsTrades)
 							if err != nil {
 								return err
 							}
@@ -1312,8 +1038,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.clickHouseStr {
 						cd.clickHouseTradesCount++
 						cd.clickHouseTrades = append(cd.clickHouseTrades, trade)
-						if cd.clickHouseTradesCount == g.connCfg.ClickHouse.TradeCommitBuf {
-							err := g.clickhouse.CommitTrades(ctx, cd.clickHouseTrades)
+						if cd.clickHouseTradesCount == e.connCfg.ClickHouse.TradeCommitBuf {
+							err := e.clickhouse.CommitTrades(ctx, cd.clickHouseTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1327,8 +1053,8 @@ func (g *gemini) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.s3Str {
 						cd.s3TradesCount++
 						cd.s3Trades = append(cd.s3Trades, trade)
-						if cd.s3TradesCount == g.connCfg.S3.TradeCommitBuf {
-							err := g.s3.CommitTrades(ctx, cd.s3Trades)
+						if cd.s3TradesCount == e.connCfg.S3.TradeCommitBuf {
+							err := e.s3.CommitTrades(ctx, cd.s3Trades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
