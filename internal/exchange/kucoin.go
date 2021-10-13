@@ -177,64 +177,64 @@ func newKucoin(appCtx context.Context, markets []config.Market, connCfg *config.
 
 					if k.ter != nil {
 						kucoinErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, k.ter, k.wsTerTickers)
+							return WsTickersToStorage(ctx, k.ter, k.wsTerTickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, k.ter, k.wsTerTrades)
+							return WsTradesToStorage(ctx, k.ter, k.wsTerTrades)
 						})
 					}
 
 					if k.mysql != nil {
 						kucoinErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, k.mysql, k.wsMysqlTickers)
+							return WsTickersToStorage(ctx, k.mysql, k.wsMysqlTickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, k.mysql, k.wsMysqlTrades)
+							return WsTradesToStorage(ctx, k.mysql, k.wsMysqlTrades)
 						})
 					}
 
 					if k.es != nil {
 						kucoinErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, k.es, k.wsEsTickers)
+							return WsTickersToStorage(ctx, k.es, k.wsEsTickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, k.es, k.wsEsTrades)
+							return WsTradesToStorage(ctx, k.es, k.wsEsTrades)
 						})
 					}
 
 					if k.influx != nil {
 						kucoinErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, k.influx, k.wsInfluxTickers)
+							return WsTickersToStorage(ctx, k.influx, k.wsInfluxTickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, k.influx, k.wsInfluxTrades)
+							return WsTradesToStorage(ctx, k.influx, k.wsInfluxTrades)
 						})
 					}
 
 					if k.nats != nil {
 						kucoinErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, k.nats, k.wsNatsTickers)
+							return WsTickersToStorage(ctx, k.nats, k.wsNatsTickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, k.nats, k.wsNatsTrades)
+							return WsTradesToStorage(ctx, k.nats, k.wsNatsTrades)
 						})
 					}
 
 					if k.clickhouse != nil {
 						kucoinErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, k.clickhouse, k.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, k.clickhouse, k.wsClickHouseTickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, k.clickhouse, k.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, k.clickhouse, k.wsClickHouseTrades)
 						})
 					}
 
 					if k.s3 != nil {
 						kucoinErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, k.s3, k.wsS3Tickers)
+							return WsTickersToStorage(ctx, k.s3, k.wsS3Tickers)
 						})
 						kucoinErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, k.s3, k.wsS3Trades)
+							return WsTradesToStorage(ctx, k.s3, k.wsS3Trades)
 						})
 					}
 				}

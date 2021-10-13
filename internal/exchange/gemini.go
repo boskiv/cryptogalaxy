@@ -161,64 +161,64 @@ func newGemini(appCtx context.Context, markets []config.Market, connCfg *config.
 
 					if g.ter != nil {
 						geminiErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.ter, g.wsTerTickers)
+							return WsTickersToStorage(ctx, g.ter, g.wsTerTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.ter, g.wsTerTrades)
+							return WsTradesToStorage(ctx, g.ter, g.wsTerTrades)
 						})
 					}
 
 					if g.mysql != nil {
 						geminiErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.mysql, g.wsMysqlTickers)
+							return WsTickersToStorage(ctx, g.mysql, g.wsMysqlTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.mysql, g.wsMysqlTrades)
+							return WsTradesToStorage(ctx, g.mysql, g.wsMysqlTrades)
 						})
 					}
 
 					if g.es != nil {
 						geminiErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.es, g.wsEsTickers)
+							return WsTickersToStorage(ctx, g.es, g.wsEsTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.es, g.wsEsTrades)
+							return WsTradesToStorage(ctx, g.es, g.wsEsTrades)
 						})
 					}
 
 					if g.influx != nil {
 						geminiErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.influx, g.wsInfluxTickers)
+							return WsTickersToStorage(ctx, g.influx, g.wsInfluxTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.influx, g.wsInfluxTrades)
+							return WsTradesToStorage(ctx, g.influx, g.wsInfluxTrades)
 						})
 					}
 
 					if g.nats != nil {
 						geminiErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.nats, g.wsNatsTickers)
+							return WsTickersToStorage(ctx, g.nats, g.wsNatsTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.nats, g.wsNatsTrades)
+							return WsTradesToStorage(ctx, g.nats, g.wsNatsTrades)
 						})
 					}
 
 					if g.clickhouse != nil {
 						geminiErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.clickhouse, g.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, g.clickhouse, g.wsClickHouseTickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.clickhouse, g.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, g.clickhouse, g.wsClickHouseTrades)
 						})
 					}
 
 					if g.s3 != nil {
 						geminiErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.s3, g.wsS3Tickers)
+							return WsTickersToStorage(ctx, g.s3, g.wsS3Tickers)
 						})
 						geminiErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.s3, g.wsS3Trades)
+							return WsTradesToStorage(ctx, g.s3, g.wsS3Trades)
 						})
 					}
 				}

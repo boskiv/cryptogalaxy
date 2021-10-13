@@ -166,64 +166,64 @@ func newAscendex(appCtx context.Context, markets []config.Market, connCfg *confi
 
 					if a.ter != nil {
 						ascendexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, a.ter, a.wsTerTickers)
+							return WsTickersToStorage(ctx, a.ter, a.wsTerTickers)
 						})
 						ascendexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, a.ter, a.wsTerTrades)
+							return WsTradesToStorage(ctx, a.ter, a.wsTerTrades)
 						})
 					}
 
 					if a.mysql != nil {
 						ascendexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, a.mysql, a.wsMysqlTickers)
+							return WsTickersToStorage(ctx, a.mysql, a.wsMysqlTickers)
 						})
 						ascendexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, a.mysql, a.wsMysqlTrades)
+							return WsTradesToStorage(ctx, a.mysql, a.wsMysqlTrades)
 						})
 					}
 
 					if a.es != nil {
 						ascendexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, a.es, a.wsEsTickers)
+							return WsTickersToStorage(ctx, a.es, a.wsEsTickers)
 						})
 						ascendexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, a.es, a.wsEsTrades)
+							return WsTradesToStorage(ctx, a.es, a.wsEsTrades)
 						})
 					}
 
 					if a.influx != nil {
 						ascendexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, a.influx, a.wsInfluxTickers)
+							return WsTickersToStorage(ctx, a.influx, a.wsInfluxTickers)
 						})
 						ascendexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, a.influx, a.wsInfluxTrades)
+							return WsTradesToStorage(ctx, a.influx, a.wsInfluxTrades)
 						})
 					}
 
 					if a.nats != nil {
 						ascendexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, a.nats, a.wsNatsTickers)
+							return WsTickersToStorage(ctx, a.nats, a.wsNatsTickers)
 						})
 						ascendexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, a.nats, a.wsNatsTrades)
+							return WsTradesToStorage(ctx, a.nats, a.wsNatsTrades)
 						})
 					}
 
 					if a.clickhouse != nil {
 						ascendexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, a.clickhouse, a.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, a.clickhouse, a.wsClickHouseTickers)
 						})
 						ascendexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, a.clickhouse, a.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, a.clickhouse, a.wsClickHouseTrades)
 						})
 					}
 
 					if a.s3 != nil {
 						ascendexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, a.s3, a.wsS3Tickers)
+							return WsTickersToStorage(ctx, a.s3, a.wsS3Tickers)
 						})
 						ascendexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, a.s3, a.wsS3Trades)
+							return WsTradesToStorage(ctx, a.s3, a.wsS3Trades)
 						})
 					}
 				}

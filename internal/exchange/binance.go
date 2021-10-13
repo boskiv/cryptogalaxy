@@ -165,64 +165,64 @@ func newBinance(appCtx context.Context, markets []config.Market, connCfg *config
 
 					if b.ter != nil {
 						binanceErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.ter, b.wsTerTickers)
+							return WsTickersToStorage(ctx, b.ter, b.wsTerTickers)
 						})
 						binanceErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.ter, b.wsTerTrades)
+							return WsTradesToStorage(ctx, b.ter, b.wsTerTrades)
 						})
 					}
 
 					if b.mysql != nil {
 						binanceErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.mysql, b.wsMysqlTickers)
+							return WsTickersToStorage(ctx, b.mysql, b.wsMysqlTickers)
 						})
 						binanceErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.mysql, b.wsMysqlTrades)
+							return WsTradesToStorage(ctx, b.mysql, b.wsMysqlTrades)
 						})
 					}
 
 					if b.es != nil {
 						binanceErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.es, b.wsEsTickers)
+							return WsTickersToStorage(ctx, b.es, b.wsEsTickers)
 						})
 						binanceErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.es, b.wsEsTrades)
+							return WsTradesToStorage(ctx, b.es, b.wsEsTrades)
 						})
 					}
 
 					if b.influx != nil {
 						binanceErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.influx, b.wsInfluxTickers)
+							return WsTickersToStorage(ctx, b.influx, b.wsInfluxTickers)
 						})
 						binanceErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.influx, b.wsInfluxTrades)
+							return WsTradesToStorage(ctx, b.influx, b.wsInfluxTrades)
 						})
 					}
 
 					if b.nats != nil {
 						binanceErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.nats, b.wsNatsTickers)
+							return WsTickersToStorage(ctx, b.nats, b.wsNatsTickers)
 						})
 						binanceErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.nats, b.wsNatsTrades)
+							return WsTradesToStorage(ctx, b.nats, b.wsNatsTrades)
 						})
 					}
 
 					if b.clickhouse != nil {
 						binanceErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.clickhouse, b.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, b.clickhouse, b.wsClickHouseTickers)
 						})
 						binanceErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.clickhouse, b.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, b.clickhouse, b.wsClickHouseTrades)
 						})
 					}
 
 					if b.s3 != nil {
 						binanceErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.s3, b.wsS3Tickers)
+							return WsTickersToStorage(ctx, b.s3, b.wsS3Tickers)
 						})
 						binanceErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.s3, b.wsS3Trades)
+							return WsTradesToStorage(ctx, b.s3, b.wsS3Trades)
 						})
 					}
 				}

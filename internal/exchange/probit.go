@@ -158,64 +158,64 @@ func newProbit(appCtx context.Context, markets []config.Market, connCfg *config.
 
 					if p.ter != nil {
 						probitErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, p.ter, p.wsTerTickers)
+							return WsTickersToStorage(ctx, p.ter, p.wsTerTickers)
 						})
 						probitErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, p.ter, p.wsTerTrades)
+							return WsTradesToStorage(ctx, p.ter, p.wsTerTrades)
 						})
 					}
 
 					if p.mysql != nil {
 						probitErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, p.mysql, p.wsMysqlTickers)
+							return WsTickersToStorage(ctx, p.mysql, p.wsMysqlTickers)
 						})
 						probitErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, p.mysql, p.wsMysqlTrades)
+							return WsTradesToStorage(ctx, p.mysql, p.wsMysqlTrades)
 						})
 					}
 
 					if p.es != nil {
 						probitErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, p.es, p.wsEsTickers)
+							return WsTickersToStorage(ctx, p.es, p.wsEsTickers)
 						})
 						probitErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, p.es, p.wsEsTrades)
+							return WsTradesToStorage(ctx, p.es, p.wsEsTrades)
 						})
 					}
 
 					if p.influx != nil {
 						probitErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, p.influx, p.wsInfluxTickers)
+							return WsTickersToStorage(ctx, p.influx, p.wsInfluxTickers)
 						})
 						probitErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, p.influx, p.wsInfluxTrades)
+							return WsTradesToStorage(ctx, p.influx, p.wsInfluxTrades)
 						})
 					}
 
 					if p.nats != nil {
 						probitErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, p.nats, p.wsNatsTickers)
+							return WsTickersToStorage(ctx, p.nats, p.wsNatsTickers)
 						})
 						probitErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, p.nats, p.wsNatsTrades)
+							return WsTradesToStorage(ctx, p.nats, p.wsNatsTrades)
 						})
 					}
 
 					if p.clickhouse != nil {
 						probitErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, p.clickhouse, p.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, p.clickhouse, p.wsClickHouseTickers)
 						})
 						probitErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, p.clickhouse, p.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, p.clickhouse, p.wsClickHouseTrades)
 						})
 					}
 
 					if p.s3 != nil {
 						probitErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, p.s3, p.wsS3Tickers)
+							return WsTickersToStorage(ctx, p.s3, p.wsS3Tickers)
 						})
 						probitErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, p.s3, p.wsS3Trades)
+							return WsTradesToStorage(ctx, p.s3, p.wsS3Trades)
 						})
 					}
 				}

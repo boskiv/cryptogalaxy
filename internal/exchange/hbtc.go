@@ -168,64 +168,64 @@ func newHbtc(appCtx context.Context, markets []config.Market, connCfg *config.Co
 
 					if h.ter != nil {
 						hbtcErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, h.ter, h.wsTerTickers)
+							return WsTickersToStorage(ctx, h.ter, h.wsTerTickers)
 						})
 						hbtcErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, h.ter, h.wsTerTrades)
+							return WsTradesToStorage(ctx, h.ter, h.wsTerTrades)
 						})
 					}
 
 					if h.mysql != nil {
 						hbtcErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, h.mysql, h.wsMysqlTickers)
+							return WsTickersToStorage(ctx, h.mysql, h.wsMysqlTickers)
 						})
 						hbtcErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, h.mysql, h.wsMysqlTrades)
+							return WsTradesToStorage(ctx, h.mysql, h.wsMysqlTrades)
 						})
 					}
 
 					if h.es != nil {
 						hbtcErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, h.es, h.wsEsTickers)
+							return WsTickersToStorage(ctx, h.es, h.wsEsTickers)
 						})
 						hbtcErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, h.es, h.wsEsTrades)
+							return WsTradesToStorage(ctx, h.es, h.wsEsTrades)
 						})
 					}
 
 					if h.influx != nil {
 						hbtcErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, h.influx, h.wsInfluxTickers)
+							return WsTickersToStorage(ctx, h.influx, h.wsInfluxTickers)
 						})
 						hbtcErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, h.influx, h.wsInfluxTrades)
+							return WsTradesToStorage(ctx, h.influx, h.wsInfluxTrades)
 						})
 					}
 
 					if h.nats != nil {
 						hbtcErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, h.nats, h.wsNatsTickers)
+							return WsTickersToStorage(ctx, h.nats, h.wsNatsTickers)
 						})
 						hbtcErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, h.nats, h.wsNatsTrades)
+							return WsTradesToStorage(ctx, h.nats, h.wsNatsTrades)
 						})
 					}
 
 					if h.clickhouse != nil {
 						hbtcErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, h.clickhouse, h.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, h.clickhouse, h.wsClickHouseTickers)
 						})
 						hbtcErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, h.clickhouse, h.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, h.clickhouse, h.wsClickHouseTrades)
 						})
 					}
 
 					if h.s3 != nil {
 						hbtcErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, h.s3, h.wsS3Tickers)
+							return WsTickersToStorage(ctx, h.s3, h.wsS3Tickers)
 						})
 						hbtcErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, h.s3, h.wsS3Trades)
+							return WsTradesToStorage(ctx, h.s3, h.wsS3Trades)
 						})
 					}
 				}

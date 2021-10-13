@@ -161,64 +161,64 @@ func newOKEx(appCtx context.Context, markets []config.Market, connCfg *config.Co
 
 					if o.ter != nil {
 						okexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, o.ter, o.wsTerTickers)
+							return WsTickersToStorage(ctx, o.ter, o.wsTerTickers)
 						})
 						okexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, o.ter, o.wsTerTrades)
+							return WsTradesToStorage(ctx, o.ter, o.wsTerTrades)
 						})
 					}
 
 					if o.mysql != nil {
 						okexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, o.mysql, o.wsMysqlTickers)
+							return WsTickersToStorage(ctx, o.mysql, o.wsMysqlTickers)
 						})
 						okexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, o.mysql, o.wsMysqlTrades)
+							return WsTradesToStorage(ctx, o.mysql, o.wsMysqlTrades)
 						})
 					}
 
 					if o.es != nil {
 						okexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, o.es, o.wsEsTickers)
+							return WsTickersToStorage(ctx, o.es, o.wsEsTickers)
 						})
 						okexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, o.es, o.wsEsTrades)
+							return WsTradesToStorage(ctx, o.es, o.wsEsTrades)
 						})
 					}
 
 					if o.influx != nil {
 						okexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, o.influx, o.wsInfluxTickers)
+							return WsTickersToStorage(ctx, o.influx, o.wsInfluxTickers)
 						})
 						okexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, o.influx, o.wsInfluxTrades)
+							return WsTradesToStorage(ctx, o.influx, o.wsInfluxTrades)
 						})
 					}
 
 					if o.nats != nil {
 						okexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, o.nats, o.wsNatsTickers)
+							return WsTickersToStorage(ctx, o.nats, o.wsNatsTickers)
 						})
 						okexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, o.nats, o.wsNatsTrades)
+							return WsTradesToStorage(ctx, o.nats, o.wsNatsTrades)
 						})
 					}
 
 					if o.clickhouse != nil {
 						okexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, o.clickhouse, o.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, o.clickhouse, o.wsClickHouseTickers)
 						})
 						okexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, o.clickhouse, o.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, o.clickhouse, o.wsClickHouseTrades)
 						})
 					}
 
 					if o.s3 != nil {
 						okexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, o.s3, o.wsS3Tickers)
+							return WsTickersToStorage(ctx, o.s3, o.wsS3Tickers)
 						})
 						okexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, o.s3, o.wsS3Trades)
+							return WsTradesToStorage(ctx, o.s3, o.wsS3Trades)
 						})
 					}
 				}

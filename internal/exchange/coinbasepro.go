@@ -152,64 +152,64 @@ func newCoinbasePro(appCtx context.Context, markets []config.Market, connCfg *co
 
 					if c.ter != nil {
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, c.ter, c.wsTerTickers)
+							return WsTickersToStorage(ctx, c.ter, c.wsTerTickers)
 						})
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, c.ter, c.wsTerTrades)
+							return WsTradesToStorage(ctx, c.ter, c.wsTerTrades)
 						})
 					}
 
 					if c.mysql != nil {
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, c.mysql, c.wsMysqlTickers)
+							return WsTickersToStorage(ctx, c.mysql, c.wsMysqlTickers)
 						})
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, c.mysql, c.wsMysqlTrades)
+							return WsTradesToStorage(ctx, c.mysql, c.wsMysqlTrades)
 						})
 					}
 
 					if c.es != nil {
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, c.es, c.wsEsTickers)
+							return WsTickersToStorage(ctx, c.es, c.wsEsTickers)
 						})
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, c.es, c.wsEsTrades)
+							return WsTradesToStorage(ctx, c.es, c.wsEsTrades)
 						})
 					}
 
 					if c.influx != nil {
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, c.influx, c.wsInfluxTickers)
+							return WsTickersToStorage(ctx, c.influx, c.wsInfluxTickers)
 						})
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, c.influx, c.wsInfluxTrades)
+							return WsTradesToStorage(ctx, c.influx, c.wsInfluxTrades)
 						})
 					}
 
 					if c.nats != nil {
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, c.nats, c.wsNatsTickers)
+							return WsTickersToStorage(ctx, c.nats, c.wsNatsTickers)
 						})
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, c.nats, c.wsNatsTrades)
+							return WsTradesToStorage(ctx, c.nats, c.wsNatsTrades)
 						})
 					}
 
 					if c.clickhouse != nil {
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, c.clickhouse, c.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, c.clickhouse, c.wsClickHouseTickers)
 						})
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, c.clickhouse, c.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, c.clickhouse, c.wsClickHouseTrades)
 						})
 					}
 
 					if c.s3 != nil {
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, c.s3, c.wsS3Tickers)
+							return WsTickersToStorage(ctx, c.s3, c.wsS3Tickers)
 						})
 						coinbaseProErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, c.s3, c.wsS3Trades)
+							return WsTradesToStorage(ctx, c.s3, c.wsS3Trades)
 						})
 					}
 				}

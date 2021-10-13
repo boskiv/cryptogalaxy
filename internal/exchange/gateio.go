@@ -163,64 +163,64 @@ func newGateio(appCtx context.Context, markets []config.Market, connCfg *config.
 
 					if g.ter != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.ter, g.wsTerTickers)
+							return WsTickersToStorage(ctx, g.ter, g.wsTerTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.ter, g.wsTerTrades)
+							return WsTradesToStorage(ctx, g.ter, g.wsTerTrades)
 						})
 					}
 
 					if g.mysql != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.mysql, g.wsMysqlTickers)
+							return WsTickersToStorage(ctx, g.mysql, g.wsMysqlTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.mysql, g.wsMysqlTrades)
+							return WsTradesToStorage(ctx, g.mysql, g.wsMysqlTrades)
 						})
 					}
 
 					if g.es != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.es, g.wsEsTickers)
+							return WsTickersToStorage(ctx, g.es, g.wsEsTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.es, g.wsEsTrades)
+							return WsTradesToStorage(ctx, g.es, g.wsEsTrades)
 						})
 					}
 
 					if g.influx != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.influx, g.wsInfluxTickers)
+							return WsTickersToStorage(ctx, g.influx, g.wsInfluxTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.influx, g.wsInfluxTrades)
+							return WsTradesToStorage(ctx, g.influx, g.wsInfluxTrades)
 						})
 					}
 
 					if g.nats != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.nats, g.wsNatsTickers)
+							return WsTickersToStorage(ctx, g.nats, g.wsNatsTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.nats, g.wsNatsTrades)
+							return WsTradesToStorage(ctx, g.nats, g.wsNatsTrades)
 						})
 					}
 
 					if g.clickhouse != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.clickhouse, g.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, g.clickhouse, g.wsClickHouseTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.clickhouse, g.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, g.clickhouse, g.wsClickHouseTrades)
 						})
 					}
 
 					if g.s3 != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, g.s3, g.wsS3Tickers)
+							return WsTickersToStorage(ctx, g.s3, g.wsS3Tickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, g.s3, g.wsS3Trades)
+							return WsTradesToStorage(ctx, g.s3, g.wsS3Trades)
 						})
 					}
 				}

@@ -1,6 +1,7 @@
 package exchange
 
 import (
+	"context"
 	"time"
 
 	"github.com/milkywaybrain/cryptogalaxy/internal/storage"
@@ -74,6 +75,42 @@ type influxTimeVal struct {
 	// are excluding that scenario.
 	TickerMap map[string]int64
 	TradeMap  map[string]int64
+}
+
+// WsTickersToStorage batch inserts input ticker data from websocket to specified storage.
+func WsTickersToStorage(ctx context.Context, str storage.Storage, tickers <-chan []storage.Ticker) error {
+	for {
+		select {
+		case data := <-tickers:
+			err := str.CommitTickers(ctx, data)
+			if err != nil {
+				if !errors.Is(err, ctx.Err()) {
+					logErrStack(err)
+				}
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// WsTradesToStorage batch inserts input trade data from websocket to specified storage.
+func WsTradesToStorage(ctx context.Context, str storage.Storage, trades <-chan []storage.Trade) error {
+	for {
+		select {
+		case data := <-trades:
+			err := str.CommitTrades(ctx, data)
+			if err != nil {
+				if !errors.Is(err, ctx.Err()) {
+					logErrStack(err)
+				}
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // logErrStack logs error with stack trace.

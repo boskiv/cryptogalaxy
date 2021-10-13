@@ -181,64 +181,64 @@ func newDigifinex(appCtx context.Context, markets []config.Market, connCfg *conf
 
 					if d.ter != nil {
 						digifinexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, d.ter, d.wsTerTickers)
+							return WsTickersToStorage(ctx, d.ter, d.wsTerTickers)
 						})
 						digifinexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, d.ter, d.wsTerTrades)
+							return WsTradesToStorage(ctx, d.ter, d.wsTerTrades)
 						})
 					}
 
 					if d.mysql != nil {
 						digifinexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, d.mysql, d.wsMysqlTickers)
+							return WsTickersToStorage(ctx, d.mysql, d.wsMysqlTickers)
 						})
 						digifinexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, d.mysql, d.wsMysqlTrades)
+							return WsTradesToStorage(ctx, d.mysql, d.wsMysqlTrades)
 						})
 					}
 
 					if d.es != nil {
 						digifinexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, d.es, d.wsEsTickers)
+							return WsTickersToStorage(ctx, d.es, d.wsEsTickers)
 						})
 						digifinexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, d.es, d.wsEsTrades)
+							return WsTradesToStorage(ctx, d.es, d.wsEsTrades)
 						})
 					}
 
 					if d.influx != nil {
 						digifinexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, d.influx, d.wsInfluxTickers)
+							return WsTickersToStorage(ctx, d.influx, d.wsInfluxTickers)
 						})
 						digifinexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, d.influx, d.wsInfluxTrades)
+							return WsTradesToStorage(ctx, d.influx, d.wsInfluxTrades)
 						})
 					}
 
 					if d.nats != nil {
 						digifinexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, d.nats, d.wsNatsTickers)
+							return WsTickersToStorage(ctx, d.nats, d.wsNatsTickers)
 						})
 						digifinexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, d.nats, d.wsNatsTrades)
+							return WsTradesToStorage(ctx, d.nats, d.wsNatsTrades)
 						})
 					}
 
 					if d.clickhouse != nil {
 						digifinexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, d.clickhouse, d.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, d.clickhouse, d.wsClickHouseTickers)
 						})
 						digifinexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, d.clickhouse, d.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, d.clickhouse, d.wsClickHouseTrades)
 						})
 					}
 
 					if d.s3 != nil {
 						digifinexErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, d.s3, d.wsS3Tickers)
+							return WsTickersToStorage(ctx, d.s3, d.wsS3Tickers)
 						})
 						digifinexErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, d.s3, d.wsS3Trades)
+							return WsTradesToStorage(ctx, d.s3, d.wsS3Trades)
 						})
 					}
 				}

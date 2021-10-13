@@ -157,64 +157,64 @@ func newBitstamp(appCtx context.Context, markets []config.Market, connCfg *confi
 
 					if b.ter != nil {
 						bitstampErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.ter, b.wsTerTickers)
+							return WsTickersToStorage(ctx, b.ter, b.wsTerTickers)
 						})
 						bitstampErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.ter, b.wsTerTrades)
+							return WsTradesToStorage(ctx, b.ter, b.wsTerTrades)
 						})
 					}
 
 					if b.mysql != nil {
 						bitstampErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.mysql, b.wsMysqlTickers)
+							return WsTickersToStorage(ctx, b.mysql, b.wsMysqlTickers)
 						})
 						bitstampErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.mysql, b.wsMysqlTrades)
+							return WsTradesToStorage(ctx, b.mysql, b.wsMysqlTrades)
 						})
 					}
 
 					if b.es != nil {
 						bitstampErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.es, b.wsEsTickers)
+							return WsTickersToStorage(ctx, b.es, b.wsEsTickers)
 						})
 						bitstampErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.es, b.wsEsTrades)
+							return WsTradesToStorage(ctx, b.es, b.wsEsTrades)
 						})
 					}
 
 					if b.influx != nil {
 						bitstampErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.influx, b.wsInfluxTickers)
+							return WsTickersToStorage(ctx, b.influx, b.wsInfluxTickers)
 						})
 						bitstampErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.influx, b.wsInfluxTrades)
+							return WsTradesToStorage(ctx, b.influx, b.wsInfluxTrades)
 						})
 					}
 
 					if b.nats != nil {
 						bitstampErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.nats, b.wsNatsTickers)
+							return WsTickersToStorage(ctx, b.nats, b.wsNatsTickers)
 						})
 						bitstampErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.nats, b.wsNatsTrades)
+							return WsTradesToStorage(ctx, b.nats, b.wsNatsTrades)
 						})
 					}
 
 					if b.clickhouse != nil {
 						bitstampErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.clickhouse, b.wsClickHouseTickers)
+							return WsTickersToStorage(ctx, b.clickhouse, b.wsClickHouseTickers)
 						})
 						bitstampErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.clickhouse, b.wsClickHouseTrades)
+							return WsTradesToStorage(ctx, b.clickhouse, b.wsClickHouseTrades)
 						})
 					}
 
 					if b.s3 != nil {
 						bitstampErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, b.s3, b.wsS3Tickers)
+							return WsTickersToStorage(ctx, b.s3, b.wsS3Tickers)
 						})
 						bitstampErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, b.s3, b.wsS3Trades)
+							return WsTradesToStorage(ctx, b.s3, b.wsS3Trades)
 						})
 					}
 				}
