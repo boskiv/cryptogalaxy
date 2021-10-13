@@ -33,19 +33,19 @@ func GetTerminal() *Terminal {
 }
 
 // CommitTickers batch outputs input ticker data to terminal.
-func (t *Terminal) CommitTickers(_ context.Context, data []Ticker) (err error) {
+func (t *Terminal) CommitTickers(_ context.Context, data []Ticker) error {
 	for i := range data {
 		ticker := data[i]
 		fmt.Fprintf(t.out, "%-15s%-15s%-15s%20f%20s\n\n", "Ticker", ticker.Exchange, ticker.MktCommitName, ticker.Price, ticker.Timestamp.Local().Format(TerminalTimestamp))
 	}
-	return
+	return nil
 }
 
 // CommitTrades batch outputs input trade data to terminal.
-func (t *Terminal) CommitTrades(_ context.Context, data []Trade) (err error) {
+func (t *Terminal) CommitTrades(_ context.Context, data []Trade) error {
 	for i := range data {
 		trade := data[i]
 		fmt.Fprintf(t.out, "%-15s%-15s%-5s%20f%20f%20s\n\n", "Trade", trade.Exchange, trade.MktCommitName, trade.Size, trade.Price, trade.Timestamp.Local().Format(TerminalTimestamp))
 	}
-	return
+	return nil
 }

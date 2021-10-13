@@ -2,15 +2,11 @@ package storage
 
 import (
 	"context"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"time"
 )
-
-type Storage interface {
-	CommitTrades(context.Context, []Trade) error
-	CommitTickers(context.Context, []Ticker) error
-}
 
 // Ticker represents final form of market ticker info received from exchange
 // ready to store.
@@ -37,11 +33,18 @@ type Trade struct {
 	InfluxVal     int64 `json:",omitempty"`
 }
 
-func TickersToStorage(ctx context.Context, storage Storage, input chan []Ticker) error {
+// Storage represents different storage options where the ticker and trade data can be stored.
+type Storage interface {
+	CommitTickers(context.Context, []Ticker) error
+	CommitTrades(context.Context, []Trade) error
+}
+
+// TickersToStorage batch inserts input ticker data to specified storage.
+func TickersToStorage(ctx context.Context, str Storage, tickers <-chan []Ticker) error {
 	for {
 		select {
-		case data := <-input:
-			err := storage.CommitTickers(ctx, data)
+		case data := <-tickers:
+			err := str.CommitTickers(ctx, data)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					log.Error().Stack().Err(errors.WithStack(err)).Msg("")
@@ -54,11 +57,12 @@ func TickersToStorage(ctx context.Context, storage Storage, input chan []Ticker)
 	}
 }
 
-func TradesToStorage(ctx context.Context, storage Storage, input chan []Trade) error {
+// TradesToStorage batch inserts input trade data to specified storage.
+func TradesToStorage(ctx context.Context, str Storage, trades <-chan []Trade) error {
 	for {
 		select {
-		case data := <-input:
-			err := storage.CommitTrades(ctx, data)
+		case data := <-trades:
+			err := str.CommitTrades(ctx, data)
 			if err != nil {
 				if !errors.Is(err, ctx.Err()) {
 					log.Error().Stack().Err(errors.WithStack(err)).Msg("")

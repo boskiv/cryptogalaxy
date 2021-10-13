@@ -2,6 +2,7 @@ package exchange
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -17,6 +18,49 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
+
+// StartMexo is for starting mexo exchange functions.
+func StartMexo(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
+
+	// If any error occurs or connection is lost, retry the exchange functions with a time gap till it reaches
+	// a configured number of retry.
+	// Retry counter will be reset back to zero if the elapsed time since the last retry is greater than the configured one.
+	var retryCount int
+	lastRetryTime := time.Now()
+
+	for {
+		err := newMexo(appCtx, markets, connCfg)
+		if err != nil {
+			log.Error().Err(err).Str("exchange", "mexo").Msg("error occurred")
+			if retry.Number == 0 {
+				return errors.New("not able to connect mexo exchange. please check the log for details")
+			}
+			if retry.ResetSec == 0 || time.Since(lastRetryTime).Seconds() < float64(retry.ResetSec) {
+				retryCount++
+			} else {
+				retryCount = 1
+			}
+			lastRetryTime = time.Now()
+			if retryCount > retry.Number {
+				err = fmt.Errorf("not able to connect mexo exchange even after %d retry", retry.Number)
+				log.Error().Err(err).Str("exchange", "mexo").Msg("")
+				return err
+			}
+
+			log.Error().Str("exchange", "mexo").Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds", retry.GapSec))
+			tick := time.NewTicker(time.Duration(retry.GapSec) * time.Second)
+			select {
+			case <-tick.C:
+				tick.Stop()
+
+			// Return, if there is any error from another exchange.
+			case <-appCtx.Done():
+				log.Error().Str("exchange", "mexo").Msg("ctx canceled, return from StartMexo")
+				return appCtx.Err()
+			}
+		}
+	}
+}
 
 type mexo struct {
 	ws                  connector.Websocket
@@ -84,14 +128,14 @@ type restRespMexo struct {
 	Time  int64  `json:"time"`
 }
 
-func NewMexo(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
+func newMexo(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
 
 	// If any exchange function fails, force all the other functions to stop and return.
 	mexoErrGroup, ctx := errgroup.WithContext(appCtx)
 
-	e := mexo{connCfg: connCfg}
+	m := mexo{connCfg: connCfg}
 
-	err := e.cfgLookup(markets)
+	err := m.cfgLookup(markets)
 	if err != nil {
 		return err
 	}
@@ -107,88 +151,88 @@ func NewMexo(appCtx context.Context, markets []config.Market, connCfg *config.Co
 			case "websocket":
 				if wsCount == 0 {
 
-					err = e.connectWs(ctx)
+					err = m.connectWs(ctx)
 					if err != nil {
 						return err
 					}
 
 					mexoErrGroup.Go(func() error {
-						return e.closeWsConnOnError(ctx)
+						return m.closeWsConnOnError(ctx)
 					})
 
 					mexoErrGroup.Go(func() error {
-						return e.pingWs(ctx)
+						return m.pingWs(ctx)
 					})
 
 					mexoErrGroup.Go(func() error {
-						return e.readWs(ctx)
+						return m.readWs(ctx)
 					})
 
-					if e.ter != nil {
+					if m.ter != nil {
 						mexoErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.ter, e.wsTerTickers)
+							return storage.TickersToStorage(ctx, m.ter, m.wsTerTickers)
 						})
 						mexoErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.ter, e.wsTerTrades)
-						})
-					}
-
-					if e.mysql != nil {
-						mexoErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.mysql, e.wsMysqlTickers)
-						})
-						mexoErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.mysql, e.wsMysqlTrades)
+							return storage.TradesToStorage(ctx, m.ter, m.wsTerTrades)
 						})
 					}
 
-					if e.es != nil {
+					if m.mysql != nil {
 						mexoErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.es, e.wsEsTickers)
+							return storage.TickersToStorage(ctx, m.mysql, m.wsMysqlTickers)
 						})
 						mexoErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.es, e.wsEsTrades)
-						})
-					}
-
-					if e.influx != nil {
-						mexoErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.influx, e.wsInfluxTickers)
-						})
-						mexoErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.influx, e.wsInfluxTrades)
+							return storage.TradesToStorage(ctx, m.mysql, m.wsMysqlTrades)
 						})
 					}
 
-					if e.nats != nil {
+					if m.es != nil {
 						mexoErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.nats, e.wsNatsTickers)
+							return storage.TickersToStorage(ctx, m.es, m.wsEsTickers)
 						})
 						mexoErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.nats, e.wsNatsTrades)
-						})
-					}
-
-					if e.clickhouse != nil {
-						mexoErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.clickhouse, e.wsClickHouseTickers)
-						})
-						mexoErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.clickhouse, e.wsClickHouseTrades)
+							return storage.TradesToStorage(ctx, m.es, m.wsEsTrades)
 						})
 					}
 
-					if e.s3 != nil {
+					if m.influx != nil {
 						mexoErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.s3, e.wsS3Tickers)
+							return storage.TickersToStorage(ctx, m.influx, m.wsInfluxTickers)
 						})
 						mexoErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.s3, e.wsS3Trades)
+							return storage.TradesToStorage(ctx, m.influx, m.wsInfluxTrades)
+						})
+					}
+
+					if m.nats != nil {
+						mexoErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, m.nats, m.wsNatsTickers)
+						})
+						mexoErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, m.nats, m.wsNatsTrades)
+						})
+					}
+
+					if m.clickhouse != nil {
+						mexoErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, m.clickhouse, m.wsClickHouseTickers)
+						})
+						mexoErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, m.clickhouse, m.wsClickHouseTrades)
+						})
+					}
+
+					if m.s3 != nil {
+						mexoErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, m.s3, m.wsS3Tickers)
+						})
+						mexoErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, m.s3, m.wsS3Trades)
 						})
 					}
 				}
 
-				err = e.subWsChannel(market.ID, info.Channel)
+				err = m.subWsChannel(market.ID, info.Channel)
 				if err != nil {
 					return err
 				}
@@ -196,11 +240,10 @@ func NewMexo(appCtx context.Context, markets []config.Market, connCfg *config.Co
 				wsCount++
 			case "rest":
 				if restCount == 0 {
-					client, err := connectRest("mexo")
+					err = m.connectRest()
 					if err != nil {
 						return err
 					}
-					e.rest = client
 				}
 
 				var mktCommitName string
@@ -213,7 +256,7 @@ func NewMexo(appCtx context.Context, markets []config.Market, connCfg *config.Co
 				channel := info.Channel
 				restPingIntSec := info.RESTPingIntSec
 				mexoErrGroup.Go(func() error {
-					return e.processREST(ctx, mktID, mktCommitName, channel, restPingIntSec)
+					return m.processREST(ctx, mktID, mktCommitName, channel, restPingIntSec)
 				})
 
 				restCount++
@@ -228,12 +271,12 @@ func NewMexo(appCtx context.Context, markets []config.Market, connCfg *config.Co
 	return nil
 }
 
-func (e *mexo) cfgLookup(markets []config.Market) error {
+func (m *mexo) cfgLookup(markets []config.Market) error {
 	var id int
 
 	// Configurations flat map is prepared for easy lookup later in the app.
-	e.cfgMap = make(map[cfgLookupKey]cfgLookupVal)
-	e.channelIds = make(map[int][2]string)
+	m.cfgMap = make(map[cfgLookupKey]cfgLookupVal)
+	m.channelIds = make(map[int][2]string)
 	for _, market := range markets {
 		var mktCommitName string
 		if market.CommitName != "" {
@@ -250,86 +293,86 @@ func (e *mexo) cfgLookup(markets []config.Market) error {
 				switch str {
 				case "terminal":
 					val.terStr = true
-					if e.ter == nil {
-						e.ter = storage.GetTerminal()
-						e.wsTerTickers = make(chan []storage.Ticker, 1)
-						e.wsTerTrades = make(chan []storage.Trade, 1)
+					if m.ter == nil {
+						m.ter = storage.GetTerminal()
+						m.wsTerTickers = make(chan []storage.Ticker, 1)
+						m.wsTerTrades = make(chan []storage.Trade, 1)
 					}
 				case "mysql":
 					val.mysqlStr = true
-					if e.mysql == nil {
-						e.mysql = storage.GetMySQL()
-						e.wsMysqlTickers = make(chan []storage.Ticker, 1)
-						e.wsMysqlTrades = make(chan []storage.Trade, 1)
+					if m.mysql == nil {
+						m.mysql = storage.GetMySQL()
+						m.wsMysqlTickers = make(chan []storage.Ticker, 1)
+						m.wsMysqlTrades = make(chan []storage.Trade, 1)
 					}
 				case "elastic_search":
 					val.esStr = true
-					if e.es == nil {
-						e.es = storage.GetElasticSearch()
-						e.wsEsTickers = make(chan []storage.Ticker, 1)
-						e.wsEsTrades = make(chan []storage.Trade, 1)
+					if m.es == nil {
+						m.es = storage.GetElasticSearch()
+						m.wsEsTickers = make(chan []storage.Ticker, 1)
+						m.wsEsTrades = make(chan []storage.Trade, 1)
 					}
 				case "influxdb":
 					val.influxStr = true
-					if e.influx == nil {
-						e.influx = storage.GetInfluxDB()
-						e.wsInfluxTickers = make(chan []storage.Ticker, 1)
-						e.wsInfluxTrades = make(chan []storage.Trade, 1)
+					if m.influx == nil {
+						m.influx = storage.GetInfluxDB()
+						m.wsInfluxTickers = make(chan []storage.Ticker, 1)
+						m.wsInfluxTrades = make(chan []storage.Trade, 1)
 					}
 				case "nats":
 					val.natsStr = true
-					if e.nats == nil {
-						e.nats = storage.GetNATS()
-						e.wsNatsTickers = make(chan []storage.Ticker, 1)
-						e.wsNatsTrades = make(chan []storage.Trade, 1)
+					if m.nats == nil {
+						m.nats = storage.GetNATS()
+						m.wsNatsTickers = make(chan []storage.Ticker, 1)
+						m.wsNatsTrades = make(chan []storage.Trade, 1)
 					}
 				case "clickhouse":
 					val.clickHouseStr = true
-					if e.clickhouse == nil {
-						e.clickhouse = storage.GetClickHouse()
-						e.wsClickHouseTickers = make(chan []storage.Ticker, 1)
-						e.wsClickHouseTrades = make(chan []storage.Trade, 1)
+					if m.clickhouse == nil {
+						m.clickhouse = storage.GetClickHouse()
+						m.wsClickHouseTickers = make(chan []storage.Ticker, 1)
+						m.wsClickHouseTrades = make(chan []storage.Trade, 1)
 					}
 				case "s3":
 					val.s3Str = true
-					if e.s3 == nil {
-						e.s3 = storage.GetS3()
-						e.wsS3Tickers = make(chan []storage.Ticker, 1)
-						e.wsS3Trades = make(chan []storage.Trade, 1)
+					if m.s3 == nil {
+						m.s3 = storage.GetS3()
+						m.wsS3Tickers = make(chan []storage.Ticker, 1)
+						m.wsS3Trades = make(chan []storage.Trade, 1)
 					}
 				}
 			}
 
 			// Channel id is used to identify channel in subscribe success message of websocket server.
 			id++
-			e.channelIds[id] = [2]string{market.ID, info.Channel}
+			m.channelIds[id] = [2]string{market.ID, info.Channel}
 			val.id = id
 
 			val.mktCommitName = mktCommitName
-			e.cfgMap[key] = val
+			m.cfgMap[key] = val
 		}
 	}
 	return nil
 }
 
-func (e *mexo) connectWs(ctx context.Context) error {
-	ws, err := connector.NewWebsocket(ctx, &e.connCfg.WS, config.MexoWebsocketURL)
+func (m *mexo) connectWs(ctx context.Context) error {
+	ws, err := connector.NewWebsocket(ctx, &m.connCfg.WS, config.MexoWebsocketURL)
 	if err != nil {
 		if !errors.Is(err, ctx.Err()) {
 			logErrStack(err)
 		}
 		return err
 	}
-	e.ws = ws
+	m.ws = ws
 	log.Info().Str("exchange", "mexo").Msg("websocket connected")
 	return nil
 }
 
 // closeWsConnOnError closes websocket connection if there is any error in app context.
 // This will unblock all read and writes on websocket.
-func (e *mexo) closeWsConnOnError(ctx context.Context) error {
+func (m *mexo) closeWsConnOnError(ctx context.Context) error {
 	<-ctx.Done()
-	err := e.ws.Conn.Close()
+	err := m.ws.Conn.Close()
 	if err != nil {
 		return err
 	}
@@ -337,7 +380,7 @@ func (e *mexo) closeWsConnOnError(ctx context.Context) error {
 }
 
 // pingWs sends ping request to websocket server for every 1 minute.
-func (e *mexo) pingWs(ctx context.Context) error {
+func (m *mexo) pingWs(ctx context.Context) error {
 	tick := time.NewTicker(1 * time.Minute)
 	defer tick.Stop()
 	for {
@@ -350,7 +393,7 @@ func (e *mexo) pingWs(ctx context.Context) error {
 				logErrStack(err)
 				return err
 			}
-			err = e.ws.Write(frame)
+			err = m.ws.Write(frame)
 			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
 					err = errors.New("context canceled")
@@ -366,7 +409,7 @@ func (e *mexo) pingWs(ctx context.Context) error {
 }
 
 // subWsChannel sends channel subscription requests to the websocket server.
-func (e *mexo) subWsChannel(market string, channel string) error {
+func (m *mexo) subWsChannel(market string, channel string) error {
 	if channel == "ticker" {
 		channel = "realtimes"
 	}
@@ -381,7 +424,7 @@ func (e *mexo) subWsChannel(market string, channel string) error {
 		logErrStack(err)
 		return err
 	}
-	err = e.ws.Write(frame)
+	err = m.ws.Write(frame)
 	if err != nil {
 		if errors.Is(err, net.ErrClosed) {
 			err = errors.New("context canceled")
@@ -394,36 +437,36 @@ func (e *mexo) subWsChannel(market string, channel string) error {
 }
 
 // readWs reads ticker / trade data from websocket channels.
-func (e *mexo) readWs(ctx context.Context) error {
+func (m *mexo) readWs(ctx context.Context) error {
 
 	// To avoid data race, creating a new local lookup map.
-	cfgLookup := make(map[cfgLookupKey]cfgLookupVal, len(e.cfgMap))
-	for k, v := range e.cfgMap {
+	cfgLookup := make(map[cfgLookupKey]cfgLookupVal, len(m.cfgMap))
+	for k, v := range m.cfgMap {
 		cfgLookup[k] = v
 	}
 
 	// See influxTimeVal struct doc for details.
 	itv := influxTimeVal{}
-	if e.influx != nil {
+	if m.influx != nil {
 		itv.TickerMap = make(map[string]int64)
 		itv.TradeMap = make(map[string]int64)
 	}
 
 	cd := commitData{
-		terTickers:        make([]storage.Ticker, 0, e.connCfg.Terminal.TickerCommitBuf),
-		terTrades:         make([]storage.Trade, 0, e.connCfg.Terminal.TradeCommitBuf),
-		mysqlTickers:      make([]storage.Ticker, 0, e.connCfg.MySQL.TickerCommitBuf),
-		mysqlTrades:       make([]storage.Trade, 0, e.connCfg.MySQL.TradeCommitBuf),
-		esTickers:         make([]storage.Ticker, 0, e.connCfg.ES.TickerCommitBuf),
-		esTrades:          make([]storage.Trade, 0, e.connCfg.ES.TradeCommitBuf),
-		influxTickers:     make([]storage.Ticker, 0, e.connCfg.InfluxDB.TickerCommitBuf),
-		influxTrades:      make([]storage.Trade, 0, e.connCfg.InfluxDB.TradeCommitBuf),
-		natsTickers:       make([]storage.Ticker, 0, e.connCfg.NATS.TickerCommitBuf),
-		natsTrades:        make([]storage.Trade, 0, e.connCfg.NATS.TradeCommitBuf),
-		clickHouseTickers: make([]storage.Ticker, 0, e.connCfg.ClickHouse.TickerCommitBuf),
-		clickHouseTrades:  make([]storage.Trade, 0, e.connCfg.ClickHouse.TradeCommitBuf),
-		s3Tickers:         make([]storage.Ticker, 0, e.connCfg.S3.TickerCommitBuf),
-		s3Trades:          make([]storage.Trade, 0, e.connCfg.S3.TradeCommitBuf),
+		terTickers:        make([]storage.Ticker, 0, m.connCfg.Terminal.TickerCommitBuf),
+		terTrades:         make([]storage.Trade, 0, m.connCfg.Terminal.TradeCommitBuf),
+		mysqlTickers:      make([]storage.Ticker, 0, m.connCfg.MySQL.TickerCommitBuf),
+		mysqlTrades:       make([]storage.Trade, 0, m.connCfg.MySQL.TradeCommitBuf),
+		esTickers:         make([]storage.Ticker, 0, m.connCfg.ES.TickerCommitBuf),
+		esTrades:          make([]storage.Trade, 0, m.connCfg.ES.TradeCommitBuf),
+		influxTickers:     make([]storage.Ticker, 0, m.connCfg.InfluxDB.TickerCommitBuf),
+		influxTrades:      make([]storage.Trade, 0, m.connCfg.InfluxDB.TradeCommitBuf),
+		natsTickers:       make([]storage.Ticker, 0, m.connCfg.NATS.TickerCommitBuf),
+		natsTrades:        make([]storage.Trade, 0, m.connCfg.NATS.TradeCommitBuf),
+		clickHouseTickers: make([]storage.Ticker, 0, m.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:  make([]storage.Trade, 0, m.connCfg.ClickHouse.TradeCommitBuf),
+		s3Tickers:         make([]storage.Ticker, 0, m.connCfg.S3.TickerCommitBuf),
+		s3Trades:          make([]storage.Trade, 0, m.connCfg.S3.TradeCommitBuf),
 	}
 
 	log.Debug().Str("exchange", "mexo").Str("func", "readWs").Msg("unlike other exchanges mexo does not send channel subscribed success message")
@@ -431,7 +474,7 @@ func (e *mexo) readWs(ctx context.Context) error {
 	for {
 		select {
 		default:
-			frame, err := e.ws.Read()
+			frame, err := m.ws.Read()
 			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
 					err = errors.New("context canceled")
@@ -476,7 +519,7 @@ func (e *mexo) readWs(ctx context.Context) error {
 					continue
 				}
 
-				err := e.processWs(ctx, &wr, &cd, &itv)
+				err := m.processWs(ctx, &wr, &cd, &itv)
 				if err != nil {
 					return err
 				}
@@ -493,7 +536,7 @@ func (e *mexo) readWs(ctx context.Context) error {
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, itv *influxTimeVal) error {
+func (m *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, itv *influxTimeVal) error {
 	switch wr.Topic {
 	case "ticker":
 		ticker := storage.Ticker{}
@@ -510,13 +553,13 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 		ticker.Timestamp = time.Now().UTC()
 
 		key := cfgLookupKey{market: ticker.MktID, channel: "ticker"}
-		val := e.cfgMap[key]
+		val := m.cfgMap[key]
 		if val.terStr {
 			cd.terTickersCount++
 			cd.terTickers = append(cd.terTickers, ticker)
-			if cd.terTickersCount == e.connCfg.Terminal.TickerCommitBuf {
+			if cd.terTickersCount == m.connCfg.Terminal.TickerCommitBuf {
 				select {
-				case e.wsTerTickers <- cd.terTickers:
+				case m.wsTerTickers <- cd.terTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -527,9 +570,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 		if val.mysqlStr {
 			cd.mysqlTickersCount++
 			cd.mysqlTickers = append(cd.mysqlTickers, ticker)
-			if cd.mysqlTickersCount == e.connCfg.MySQL.TickerCommitBuf {
+			if cd.mysqlTickersCount == m.connCfg.MySQL.TickerCommitBuf {
 				select {
-				case e.wsMysqlTickers <- cd.mysqlTickers:
+				case m.wsMysqlTickers <- cd.mysqlTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -540,9 +583,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 		if val.esStr {
 			cd.esTickersCount++
 			cd.esTickers = append(cd.esTickers, ticker)
-			if cd.esTickersCount == e.connCfg.ES.TickerCommitBuf {
+			if cd.esTickersCount == m.connCfg.ES.TickerCommitBuf {
 				select {
-				case e.wsEsTickers <- cd.esTickers:
+				case m.wsEsTickers <- cd.esTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -562,9 +605,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 
 			cd.influxTickersCount++
 			cd.influxTickers = append(cd.influxTickers, ticker)
-			if cd.influxTickersCount == e.connCfg.InfluxDB.TickerCommitBuf {
+			if cd.influxTickersCount == m.connCfg.InfluxDB.TickerCommitBuf {
 				select {
-				case e.wsInfluxTickers <- cd.influxTickers:
+				case m.wsInfluxTickers <- cd.influxTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -575,9 +618,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 		if val.natsStr {
 			cd.natsTickersCount++
 			cd.natsTickers = append(cd.natsTickers, ticker)
-			if cd.natsTickersCount == e.connCfg.NATS.TickerCommitBuf {
+			if cd.natsTickersCount == m.connCfg.NATS.TickerCommitBuf {
 				select {
-				case e.wsNatsTickers <- cd.natsTickers:
+				case m.wsNatsTickers <- cd.natsTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -588,9 +631,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 		if val.clickHouseStr {
 			cd.clickHouseTickersCount++
 			cd.clickHouseTickers = append(cd.clickHouseTickers, ticker)
-			if cd.clickHouseTickersCount == e.connCfg.ClickHouse.TickerCommitBuf {
+			if cd.clickHouseTickersCount == m.connCfg.ClickHouse.TickerCommitBuf {
 				select {
-				case e.wsClickHouseTickers <- cd.clickHouseTickers:
+				case m.wsClickHouseTickers <- cd.clickHouseTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -601,9 +644,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 		if val.s3Str {
 			cd.s3TickersCount++
 			cd.s3Tickers = append(cd.s3Tickers, ticker)
-			if cd.s3TickersCount == e.connCfg.S3.TickerCommitBuf {
+			if cd.s3TickersCount == m.connCfg.S3.TickerCommitBuf {
 				select {
-				case e.wsS3Tickers <- cd.s3Tickers:
+				case m.wsS3Tickers <- cd.s3Tickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -653,13 +696,13 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 			}
 
 			key := cfgLookupKey{market: trade.MktID, channel: "trade"}
-			val := e.cfgMap[key]
+			val := m.cfgMap[key]
 			if val.terStr {
 				cd.terTradesCount++
 				cd.terTrades = append(cd.terTrades, trade)
-				if cd.terTradesCount == e.connCfg.Terminal.TradeCommitBuf {
+				if cd.terTradesCount == m.connCfg.Terminal.TradeCommitBuf {
 					select {
-					case e.wsTerTrades <- cd.terTrades:
+					case m.wsTerTrades <- cd.terTrades:
 					case <-ctx.Done():
 						return ctx.Err()
 					}
@@ -670,9 +713,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 			if val.mysqlStr {
 				cd.mysqlTradesCount++
 				cd.mysqlTrades = append(cd.mysqlTrades, trade)
-				if cd.mysqlTradesCount == e.connCfg.MySQL.TradeCommitBuf {
+				if cd.mysqlTradesCount == m.connCfg.MySQL.TradeCommitBuf {
 					select {
-					case e.wsMysqlTrades <- cd.mysqlTrades:
+					case m.wsMysqlTrades <- cd.mysqlTrades:
 					case <-ctx.Done():
 						return ctx.Err()
 					}
@@ -683,9 +726,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 			if val.esStr {
 				cd.esTradesCount++
 				cd.esTrades = append(cd.esTrades, trade)
-				if cd.esTradesCount == e.connCfg.ES.TradeCommitBuf {
+				if cd.esTradesCount == m.connCfg.ES.TradeCommitBuf {
 					select {
-					case e.wsEsTrades <- cd.esTrades:
+					case m.wsEsTrades <- cd.esTrades:
 					case <-ctx.Done():
 						return ctx.Err()
 					}
@@ -705,9 +748,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 
 				cd.influxTradesCount++
 				cd.influxTrades = append(cd.influxTrades, trade)
-				if cd.influxTradesCount == e.connCfg.InfluxDB.TradeCommitBuf {
+				if cd.influxTradesCount == m.connCfg.InfluxDB.TradeCommitBuf {
 					select {
-					case e.wsInfluxTrades <- cd.influxTrades:
+					case m.wsInfluxTrades <- cd.influxTrades:
 					case <-ctx.Done():
 						return ctx.Err()
 					}
@@ -718,9 +761,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 			if val.natsStr {
 				cd.natsTradesCount++
 				cd.natsTrades = append(cd.natsTrades, trade)
-				if cd.natsTradesCount == e.connCfg.NATS.TradeCommitBuf {
+				if cd.natsTradesCount == m.connCfg.NATS.TradeCommitBuf {
 					select {
-					case e.wsNatsTrades <- cd.natsTrades:
+					case m.wsNatsTrades <- cd.natsTrades:
 					case <-ctx.Done():
 						return ctx.Err()
 					}
@@ -731,9 +774,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 			if val.clickHouseStr {
 				cd.clickHouseTradesCount++
 				cd.clickHouseTrades = append(cd.clickHouseTrades, trade)
-				if cd.clickHouseTradesCount == e.connCfg.ClickHouse.TradeCommitBuf {
+				if cd.clickHouseTradesCount == m.connCfg.ClickHouse.TradeCommitBuf {
 					select {
-					case e.wsClickHouseTrades <- cd.clickHouseTrades:
+					case m.wsClickHouseTrades <- cd.clickHouseTrades:
 					case <-ctx.Done():
 						return ctx.Err()
 					}
@@ -744,9 +787,9 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 			if val.s3Str {
 				cd.s3TradesCount++
 				cd.s3Trades = append(cd.s3Trades, trade)
-				if cd.s3TradesCount == e.connCfg.S3.TradeCommitBuf {
+				if cd.s3TradesCount == m.connCfg.S3.TradeCommitBuf {
 					select {
-					case e.wsS3Trades <- cd.s3Trades:
+					case m.wsS3Trades <- cd.s3Trades:
 					case <-ctx.Done():
 						return ctx.Err()
 					}
@@ -759,11 +802,22 @@ func (e *mexo) processWs(ctx context.Context, wr *wsRespMexo, cd *commitData, it
 	return nil
 }
 
+func (m *mexo) connectRest() error {
+	rest, err := connector.GetREST()
+	if err != nil {
+		logErrStack(err)
+		return err
+	}
+	m.rest = rest
+	log.Info().Str("exchange", "mexo").Msg("REST connection setup is done")
+	return nil
+}
+
 // processREST queries exchange for ticker / trade data through REST API in configured intervals,
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
+func (m *mexo) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
 	var (
 		req *http.Request
 		q   url.Values
@@ -775,25 +829,25 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 	)
 
 	cd := commitData{
-		terTickers:        make([]storage.Ticker, 0, e.connCfg.Terminal.TickerCommitBuf),
-		terTrades:         make([]storage.Trade, 0, e.connCfg.Terminal.TradeCommitBuf),
-		mysqlTickers:      make([]storage.Ticker, 0, e.connCfg.MySQL.TickerCommitBuf),
-		mysqlTrades:       make([]storage.Trade, 0, e.connCfg.MySQL.TradeCommitBuf),
-		esTickers:         make([]storage.Ticker, 0, e.connCfg.ES.TickerCommitBuf),
-		esTrades:          make([]storage.Trade, 0, e.connCfg.ES.TradeCommitBuf),
-		influxTickers:     make([]storage.Ticker, 0, e.connCfg.InfluxDB.TickerCommitBuf),
-		influxTrades:      make([]storage.Trade, 0, e.connCfg.InfluxDB.TradeCommitBuf),
-		natsTickers:       make([]storage.Ticker, 0, e.connCfg.NATS.TickerCommitBuf),
-		natsTrades:        make([]storage.Trade, 0, e.connCfg.NATS.TradeCommitBuf),
-		clickHouseTickers: make([]storage.Ticker, 0, e.connCfg.ClickHouse.TickerCommitBuf),
-		clickHouseTrades:  make([]storage.Trade, 0, e.connCfg.ClickHouse.TradeCommitBuf),
-		s3Tickers:         make([]storage.Ticker, 0, e.connCfg.S3.TickerCommitBuf),
-		s3Trades:          make([]storage.Trade, 0, e.connCfg.S3.TradeCommitBuf),
+		terTickers:        make([]storage.Ticker, 0, m.connCfg.Terminal.TickerCommitBuf),
+		terTrades:         make([]storage.Trade, 0, m.connCfg.Terminal.TradeCommitBuf),
+		mysqlTickers:      make([]storage.Ticker, 0, m.connCfg.MySQL.TickerCommitBuf),
+		mysqlTrades:       make([]storage.Trade, 0, m.connCfg.MySQL.TradeCommitBuf),
+		esTickers:         make([]storage.Ticker, 0, m.connCfg.ES.TickerCommitBuf),
+		esTrades:          make([]storage.Trade, 0, m.connCfg.ES.TradeCommitBuf),
+		influxTickers:     make([]storage.Ticker, 0, m.connCfg.InfluxDB.TickerCommitBuf),
+		influxTrades:      make([]storage.Trade, 0, m.connCfg.InfluxDB.TradeCommitBuf),
+		natsTickers:       make([]storage.Ticker, 0, m.connCfg.NATS.TickerCommitBuf),
+		natsTrades:        make([]storage.Trade, 0, m.connCfg.NATS.TradeCommitBuf),
+		clickHouseTickers: make([]storage.Ticker, 0, m.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:  make([]storage.Trade, 0, m.connCfg.ClickHouse.TradeCommitBuf),
+		s3Tickers:         make([]storage.Ticker, 0, m.connCfg.S3.TickerCommitBuf),
+		s3Trades:          make([]storage.Trade, 0, m.connCfg.S3.TradeCommitBuf),
 	}
 
 	switch channel {
 	case "ticker":
-		req, err = e.rest.Request(ctx, "GET", config.MexoRESTBaseURL+"quote/v1/ticker/price")
+		req, err = m.rest.Request(ctx, "GET", config.MexoRESTBaseURL+"quote/v1/ticker/price")
 		if err != nil {
 			if !errors.Is(err, ctx.Err()) {
 				logErrStack(err)
@@ -803,7 +857,7 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 		q = req.URL.Query()
 		q.Add("symbol", mktID)
 	case "trade":
-		req, err = e.rest.Request(ctx, "GET", config.MexoRESTBaseURL+"quote/v1/trades")
+		req, err = m.rest.Request(ctx, "GET", config.MexoRESTBaseURL+"quote/v1/trades")
 		if err != nil {
 			if !errors.Is(err, ctx.Err()) {
 				logErrStack(err)
@@ -829,7 +883,7 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 			switch channel {
 			case "ticker":
 				req.URL.RawQuery = q.Encode()
-				resp, err := e.rest.Do(req)
+				resp, err := m.rest.Do(req)
 				if err != nil {
 					if !errors.Is(err, ctx.Err()) {
 						logErrStack(err)
@@ -860,12 +914,18 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 				}
 
 				key := cfgLookupKey{market: ticker.MktID, channel: "ticker"}
-				val := e.cfgMap[key]
+				val := m.cfgMap[key]
 				if val.terStr {
 					cd.terTickersCount++
 					cd.terTickers = append(cd.terTickers, ticker)
-					if cd.terTickersCount == e.connCfg.Terminal.TickerCommitBuf {
-						e.ter.CommitTickers(ctx, cd.terTickers)
+					if cd.terTickersCount == m.connCfg.Terminal.TickerCommitBuf {
+						err := m.ter.CommitTickers(ctx, cd.terTickers)
+						if err != nil {
+							if !errors.Is(err, ctx.Err()) {
+								logErrStack(err)
+							}
+							return err
+						}
 						cd.terTickersCount = 0
 						cd.terTickers = nil
 					}
@@ -873,8 +933,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 				if val.mysqlStr {
 					cd.mysqlTickersCount++
 					cd.mysqlTickers = append(cd.mysqlTickers, ticker)
-					if cd.mysqlTickersCount == e.connCfg.MySQL.TickerCommitBuf {
-						err := e.mysql.CommitTickers(ctx, cd.mysqlTickers)
+					if cd.mysqlTickersCount == m.connCfg.MySQL.TickerCommitBuf {
+						err := m.mysql.CommitTickers(ctx, cd.mysqlTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -888,8 +948,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 				if val.esStr {
 					cd.esTickersCount++
 					cd.esTickers = append(cd.esTickers, ticker)
-					if cd.esTickersCount == e.connCfg.ES.TickerCommitBuf {
-						err := e.es.CommitTickers(ctx, cd.esTickers)
+					if cd.esTickersCount == m.connCfg.ES.TickerCommitBuf {
+						err := m.es.CommitTickers(ctx, cd.esTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -910,8 +970,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 
 					cd.influxTickersCount++
 					cd.influxTickers = append(cd.influxTickers, ticker)
-					if cd.influxTickersCount == e.connCfg.InfluxDB.TickerCommitBuf {
-						err := e.influx.CommitTickers(ctx, cd.influxTickers)
+					if cd.influxTickersCount == m.connCfg.InfluxDB.TickerCommitBuf {
+						err := m.influx.CommitTickers(ctx, cd.influxTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -925,8 +985,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 				if val.natsStr {
 					cd.natsTickersCount++
 					cd.natsTickers = append(cd.natsTickers, ticker)
-					if cd.natsTickersCount == e.connCfg.NATS.TickerCommitBuf {
-						err := e.nats.CommitTickers(ctx, cd.natsTickers)
+					if cd.natsTickersCount == m.connCfg.NATS.TickerCommitBuf {
+						err := m.nats.CommitTickers(ctx, cd.natsTickers)
 						if err != nil {
 							return err
 						}
@@ -937,8 +997,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 				if val.clickHouseStr {
 					cd.clickHouseTickersCount++
 					cd.clickHouseTickers = append(cd.clickHouseTickers, ticker)
-					if cd.clickHouseTickersCount == e.connCfg.ClickHouse.TickerCommitBuf {
-						err := e.clickhouse.CommitTickers(ctx, cd.clickHouseTickers)
+					if cd.clickHouseTickersCount == m.connCfg.ClickHouse.TickerCommitBuf {
+						err := m.clickhouse.CommitTickers(ctx, cd.clickHouseTickers)
 						if err != nil {
 							return err
 						}
@@ -949,8 +1009,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 				if val.s3Str {
 					cd.s3TickersCount++
 					cd.s3Tickers = append(cd.s3Tickers, ticker)
-					if cd.s3TickersCount == e.connCfg.S3.TickerCommitBuf {
-						err := e.s3.CommitTickers(ctx, cd.s3Tickers)
+					if cd.s3TickersCount == m.connCfg.S3.TickerCommitBuf {
+						err := m.s3.CommitTickers(ctx, cd.s3Tickers)
 						if err != nil {
 							return err
 						}
@@ -960,7 +1020,7 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 				}
 			case "trade":
 				req.URL.RawQuery = q.Encode()
-				resp, err := e.rest.Do(req)
+				resp, err := m.rest.Do(req)
 				if err != nil {
 					if !errors.Is(err, ctx.Err()) {
 						logErrStack(err)
@@ -1011,12 +1071,18 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 					}
 
 					key := cfgLookupKey{market: trade.MktID, channel: "trade"}
-					val := e.cfgMap[key]
+					val := m.cfgMap[key]
 					if val.terStr {
 						cd.terTradesCount++
 						cd.terTrades = append(cd.terTrades, trade)
-						if cd.terTradesCount == e.connCfg.Terminal.TradeCommitBuf {
-							e.ter.CommitTrades(ctx, cd.terTrades)
+						if cd.terTradesCount == m.connCfg.Terminal.TradeCommitBuf {
+							err := m.ter.CommitTrades(ctx, cd.terTrades)
+							if err != nil {
+								if !errors.Is(err, ctx.Err()) {
+									logErrStack(err)
+								}
+								return err
+							}
 							cd.terTradesCount = 0
 							cd.terTrades = nil
 						}
@@ -1024,8 +1090,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 					if val.mysqlStr {
 						cd.mysqlTradesCount++
 						cd.mysqlTrades = append(cd.mysqlTrades, trade)
-						if cd.mysqlTradesCount == e.connCfg.MySQL.TradeCommitBuf {
-							err := e.mysql.CommitTrades(ctx, cd.mysqlTrades)
+						if cd.mysqlTradesCount == m.connCfg.MySQL.TradeCommitBuf {
+							err := m.mysql.CommitTrades(ctx, cd.mysqlTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1039,8 +1105,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 					if val.esStr {
 						cd.esTradesCount++
 						cd.esTrades = append(cd.esTrades, trade)
-						if cd.esTradesCount == e.connCfg.ES.TradeCommitBuf {
-							err := e.es.CommitTrades(ctx, cd.esTrades)
+						if cd.esTradesCount == m.connCfg.ES.TradeCommitBuf {
+							err := m.es.CommitTrades(ctx, cd.esTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1061,8 +1127,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 
 						cd.influxTradesCount++
 						cd.influxTrades = append(cd.influxTrades, trade)
-						if cd.influxTradesCount == e.connCfg.InfluxDB.TradeCommitBuf {
-							err := e.influx.CommitTrades(ctx, cd.influxTrades)
+						if cd.influxTradesCount == m.connCfg.InfluxDB.TradeCommitBuf {
+							err := m.influx.CommitTrades(ctx, cd.influxTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1076,8 +1142,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 					if val.natsStr {
 						cd.natsTradesCount++
 						cd.natsTrades = append(cd.natsTrades, trade)
-						if cd.natsTradesCount == e.connCfg.NATS.TradeCommitBuf {
-							err := e.nats.CommitTrades(ctx, cd.natsTrades)
+						if cd.natsTradesCount == m.connCfg.NATS.TradeCommitBuf {
+							err := m.nats.CommitTrades(ctx, cd.natsTrades)
 							if err != nil {
 								return err
 							}
@@ -1088,8 +1154,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 					if val.clickHouseStr {
 						cd.clickHouseTradesCount++
 						cd.clickHouseTrades = append(cd.clickHouseTrades, trade)
-						if cd.clickHouseTradesCount == e.connCfg.ClickHouse.TradeCommitBuf {
-							err := e.clickhouse.CommitTrades(ctx, cd.clickHouseTrades)
+						if cd.clickHouseTradesCount == m.connCfg.ClickHouse.TradeCommitBuf {
+							err := m.clickhouse.CommitTrades(ctx, cd.clickHouseTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1103,8 +1169,8 @@ func (e *mexo) processREST(ctx context.Context, mktID string, mktCommitName stri
 					if val.s3Str {
 						cd.s3TradesCount++
 						cd.s3Trades = append(cd.s3Trades, trade)
-						if cd.s3TradesCount == e.connCfg.S3.TradeCommitBuf {
-							err := e.s3.CommitTrades(ctx, cd.s3Trades)
+						if cd.s3TradesCount == m.connCfg.S3.TradeCommitBuf {
+							err := m.s3.CommitTrades(ctx, cd.s3Trades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)

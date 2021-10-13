@@ -1,10 +1,6 @@
 package exchange
 
 import (
-	"context"
-	"fmt"
-	"github.com/milkywaybrain/cryptogalaxy/internal/config"
-	"github.com/milkywaybrain/cryptogalaxy/internal/connector"
 	"time"
 
 	"github.com/milkywaybrain/cryptogalaxy/internal/storage"
@@ -75,64 +71,9 @@ type influxTimeVal struct {
 	// 1 millisecond to have a unique timestamp entry for each data point. This will not change anything
 	// as we are maintaining only millisecond precision ticker and trade records.
 	// Of course this will break if we have more than a million trades per millisecond per market in an exchange. But we
-	// are excluding that scenarie.
+	// are excluding that scenario.
 	TickerMap map[string]int64
 	TradeMap  map[string]int64
-}
-
-func Start(
-	exchange string,
-	appCtx context.Context,
-	markets []config.Market,
-	retry *config.Retry,
-	connCfg *config.Connection,
-	initializer func(context.Context, []config.Market, *config.Connection) error,
-) error {
-	var retryCount int
-	lastRetryTime := time.Now()
-
-	for {
-		err := initializer(appCtx, markets, connCfg)
-		if err != nil {
-			log.Error().Err(err).Str("exchange", exchange).Msg("error occurred")
-			if retry.Number == 0 {
-				return errors.New("not able to connect aax exchange. please check the log for details")
-			}
-			if retry.ResetSec == 0 || time.Since(lastRetryTime).Seconds() < float64(retry.ResetSec) {
-				retryCount++
-			} else {
-				retryCount = 1
-			}
-			lastRetryTime = time.Now()
-			if retryCount > retry.Number {
-				err = fmt.Errorf("not able to connect aax exchange even after %d retry", retry.Number)
-				log.Error().Err(err).Str("exchange", exchange).Msg("")
-				return err
-			}
-
-			log.Error().Str("exchange", exchange).Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds", retry.GapSec))
-			tick := time.NewTicker(time.Duration(retry.GapSec) * time.Second)
-			select {
-			case <-tick.C:
-				tick.Stop()
-
-			// Return, if there is any error from another exchange.
-			case <-appCtx.Done():
-				log.Error().Str("exchange", exchange).Msg("ctx canceled, return from Start function")
-				return appCtx.Err()
-			}
-		}
-	}
-}
-
-func connectRest(exchange string) (client *connector.REST, err error) {
-	client, err = connector.GetREST()
-	if err != nil {
-		logErrStack(err)
-		return
-	}
-	log.Info().Str("exchange", exchange).Msg("REST connection setup is done")
-	return
 }
 
 // logErrStack logs error with stack trace.

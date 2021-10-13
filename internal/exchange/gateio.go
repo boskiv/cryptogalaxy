@@ -2,6 +2,7 @@ package exchange
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -18,6 +19,49 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 )
+
+// StartGateio is for starting gateio exchange functions.
+func StartGateio(appCtx context.Context, markets []config.Market, retry *config.Retry, connCfg *config.Connection) error {
+
+	// If any error occurs or connection is lost, retry the exchange functions with a time gap till it reaches
+	// a configured number of retry.
+	// Retry counter will be reset back to zero if the elapsed time since the last retry is greater than the configured one.
+	var retryCount int
+	lastRetryTime := time.Now()
+
+	for {
+		err := newGateio(appCtx, markets, connCfg)
+		if err != nil {
+			log.Error().Err(err).Str("exchange", "gateio").Msg("error occurred")
+			if retry.Number == 0 {
+				return errors.New("not able to connect gateio exchange. please check the log for details")
+			}
+			if retry.ResetSec == 0 || time.Since(lastRetryTime).Seconds() < float64(retry.ResetSec) {
+				retryCount++
+			} else {
+				retryCount = 1
+			}
+			lastRetryTime = time.Now()
+			if retryCount > retry.Number {
+				err = fmt.Errorf("not able to connect gateio exchange even after %d retry", retry.Number)
+				log.Error().Err(err).Str("exchange", "gateio").Msg("")
+				return err
+			}
+
+			log.Error().Str("exchange", "gateio").Int("retry", retryCount).Msg(fmt.Sprintf("retrying functions in %d seconds", retry.GapSec))
+			tick := time.NewTicker(time.Duration(retry.GapSec) * time.Second)
+			select {
+			case <-tick.C:
+				tick.Stop()
+
+			// Return, if there is any error from another exchange.
+			case <-appCtx.Done():
+				log.Error().Str("exchange", "gateio").Msg("ctx canceled, return from StartGateio")
+				return appCtx.Err()
+			}
+		}
+	}
+}
 
 type gateio struct {
 	ws                  connector.Websocket
@@ -81,14 +125,14 @@ type respGateio struct {
 	Status       string      `json:"status"`
 }
 
-func NewGateio(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
+func newGateio(appCtx context.Context, markets []config.Market, connCfg *config.Connection) error {
 
 	// If any exchange function fails, force all the other functions to stop and return.
 	gateioErrGroup, ctx := errgroup.WithContext(appCtx)
 
-	e := gateio{connCfg: connCfg}
+	g := gateio{connCfg: connCfg}
 
-	err := e.cfgLookup(markets)
+	err := g.cfgLookup(markets)
 	if err != nil {
 		return err
 	}
@@ -104,86 +148,86 @@ func NewGateio(appCtx context.Context, markets []config.Market, connCfg *config.
 			case "websocket":
 				if wsCount == 0 {
 
-					err = e.connectWs(ctx)
+					err = g.connectWs(ctx)
 					if err != nil {
 						return err
 					}
 
 					gateioErrGroup.Go(func() error {
-						return e.closeWsConnOnError(ctx)
+						return g.closeWsConnOnError(ctx)
 					})
 
 					gateioErrGroup.Go(func() error {
-						return e.readWs(ctx)
+						return g.readWs(ctx)
 					})
 
-					if e.ter != nil {
+					if g.ter != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.ter, e.wsTerTickers)
+							return storage.TickersToStorage(ctx, g.ter, g.wsTerTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.ter, e.wsTerTrades)
-						})
-					}
-
-					if e.mysql != nil {
-						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.mysql, e.wsMysqlTickers)
-						})
-						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.mysql, e.wsMysqlTrades)
+							return storage.TradesToStorage(ctx, g.ter, g.wsTerTrades)
 						})
 					}
 
-					if e.es != nil {
+					if g.mysql != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.es, e.wsEsTickers)
+							return storage.TickersToStorage(ctx, g.mysql, g.wsMysqlTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.es, e.wsEsTrades)
-						})
-					}
-
-					if e.influx != nil {
-						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.influx, e.wsInfluxTickers)
-						})
-						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.influx, e.wsInfluxTrades)
+							return storage.TradesToStorage(ctx, g.mysql, g.wsMysqlTrades)
 						})
 					}
 
-					if e.nats != nil {
+					if g.es != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.nats, e.wsNatsTickers)
+							return storage.TickersToStorage(ctx, g.es, g.wsEsTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.nats, e.wsNatsTrades)
-						})
-					}
-
-					if e.clickhouse != nil {
-						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.clickhouse, e.wsClickHouseTickers)
-						})
-						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.clickhouse, e.wsClickHouseTrades)
+							return storage.TradesToStorage(ctx, g.es, g.wsEsTrades)
 						})
 					}
 
-					if e.s3 != nil {
+					if g.influx != nil {
 						gateioErrGroup.Go(func() error {
-							return storage.TickersToStorage(ctx, e.s3, e.wsS3Tickers)
+							return storage.TickersToStorage(ctx, g.influx, g.wsInfluxTickers)
 						})
 						gateioErrGroup.Go(func() error {
-							return storage.TradesToStorage(ctx, e.s3, e.wsS3Trades)
+							return storage.TradesToStorage(ctx, g.influx, g.wsInfluxTrades)
+						})
+					}
+
+					if g.nats != nil {
+						gateioErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, g.nats, g.wsNatsTickers)
+						})
+						gateioErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, g.nats, g.wsNatsTrades)
+						})
+					}
+
+					if g.clickhouse != nil {
+						gateioErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, g.clickhouse, g.wsClickHouseTickers)
+						})
+						gateioErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, g.clickhouse, g.wsClickHouseTrades)
+						})
+					}
+
+					if g.s3 != nil {
+						gateioErrGroup.Go(func() error {
+							return storage.TickersToStorage(ctx, g.s3, g.wsS3Tickers)
+						})
+						gateioErrGroup.Go(func() error {
+							return storage.TradesToStorage(ctx, g.s3, g.wsS3Trades)
 						})
 					}
 				}
 
 				key := cfgLookupKey{market: market.ID, channel: info.Channel}
-				val := e.cfgMap[key]
-				err = e.subWsChannel(market.ID, info.Channel, val.id)
+				val := g.cfgMap[key]
+				err = g.subWsChannel(market.ID, info.Channel, val.id)
 				if err != nil {
 					return err
 				}
@@ -191,11 +235,10 @@ func NewGateio(appCtx context.Context, markets []config.Market, connCfg *config.
 				wsCount++
 			case "rest":
 				if restCount == 0 {
-					client, err := connectRest("gateio")
+					err = g.connectRest()
 					if err != nil {
 						return err
 					}
-					e.rest = client
 				}
 
 				var mktCommitName string
@@ -208,7 +251,7 @@ func NewGateio(appCtx context.Context, markets []config.Market, connCfg *config.
 				channel := info.Channel
 				restPingIntSec := info.RESTPingIntSec
 				gateioErrGroup.Go(func() error {
-					return e.processREST(ctx, mktID, mktCommitName, channel, restPingIntSec)
+					return g.processREST(ctx, mktID, mktCommitName, channel, restPingIntSec)
 				})
 
 				restCount++
@@ -223,12 +266,12 @@ func NewGateio(appCtx context.Context, markets []config.Market, connCfg *config.
 	return nil
 }
 
-func (e *gateio) cfgLookup(markets []config.Market) error {
+func (g *gateio) cfgLookup(markets []config.Market) error {
 	var id int
 
 	// Configurations flat map is prepared for easy lookup later in the app.
-	e.cfgMap = make(map[cfgLookupKey]cfgLookupVal)
-	e.channelIds = make(map[int][2]string)
+	g.cfgMap = make(map[cfgLookupKey]cfgLookupVal)
+	g.channelIds = make(map[int][2]string)
 	for _, market := range markets {
 		var marketCommitName string
 		if market.CommitName != "" {
@@ -245,86 +288,86 @@ func (e *gateio) cfgLookup(markets []config.Market) error {
 				switch str {
 				case "terminal":
 					val.terStr = true
-					if e.ter == nil {
-						e.ter = storage.GetTerminal()
-						e.wsTerTickers = make(chan []storage.Ticker, 1)
-						e.wsTerTrades = make(chan []storage.Trade, 1)
+					if g.ter == nil {
+						g.ter = storage.GetTerminal()
+						g.wsTerTickers = make(chan []storage.Ticker, 1)
+						g.wsTerTrades = make(chan []storage.Trade, 1)
 					}
 				case "mysql":
 					val.mysqlStr = true
-					if e.mysql == nil {
-						e.mysql = storage.GetMySQL()
-						e.wsMysqlTickers = make(chan []storage.Ticker, 1)
-						e.wsMysqlTrades = make(chan []storage.Trade, 1)
+					if g.mysql == nil {
+						g.mysql = storage.GetMySQL()
+						g.wsMysqlTickers = make(chan []storage.Ticker, 1)
+						g.wsMysqlTrades = make(chan []storage.Trade, 1)
 					}
 				case "elastic_search":
 					val.esStr = true
-					if e.es == nil {
-						e.es = storage.GetElasticSearch()
-						e.wsEsTickers = make(chan []storage.Ticker, 1)
-						e.wsEsTrades = make(chan []storage.Trade, 1)
+					if g.es == nil {
+						g.es = storage.GetElasticSearch()
+						g.wsEsTickers = make(chan []storage.Ticker, 1)
+						g.wsEsTrades = make(chan []storage.Trade, 1)
 					}
 				case "influxdb":
 					val.influxStr = true
-					if e.influx == nil {
-						e.influx = storage.GetInfluxDB()
-						e.wsInfluxTickers = make(chan []storage.Ticker, 1)
-						e.wsInfluxTrades = make(chan []storage.Trade, 1)
+					if g.influx == nil {
+						g.influx = storage.GetInfluxDB()
+						g.wsInfluxTickers = make(chan []storage.Ticker, 1)
+						g.wsInfluxTrades = make(chan []storage.Trade, 1)
 					}
 				case "nats":
 					val.natsStr = true
-					if e.nats == nil {
-						e.nats = storage.GetNATS()
-						e.wsNatsTickers = make(chan []storage.Ticker, 1)
-						e.wsNatsTrades = make(chan []storage.Trade, 1)
+					if g.nats == nil {
+						g.nats = storage.GetNATS()
+						g.wsNatsTickers = make(chan []storage.Ticker, 1)
+						g.wsNatsTrades = make(chan []storage.Trade, 1)
 					}
 				case "clickhouse":
 					val.clickHouseStr = true
-					if e.clickhouse == nil {
-						e.clickhouse = storage.GetClickHouse()
-						e.wsClickHouseTickers = make(chan []storage.Ticker, 1)
-						e.wsClickHouseTrades = make(chan []storage.Trade, 1)
+					if g.clickhouse == nil {
+						g.clickhouse = storage.GetClickHouse()
+						g.wsClickHouseTickers = make(chan []storage.Ticker, 1)
+						g.wsClickHouseTrades = make(chan []storage.Trade, 1)
 					}
 				case "s3":
 					val.s3Str = true
-					if e.s3 == nil {
-						e.s3 = storage.GetS3()
-						e.wsS3Tickers = make(chan []storage.Ticker, 1)
-						e.wsS3Trades = make(chan []storage.Trade, 1)
+					if g.s3 == nil {
+						g.s3 = storage.GetS3()
+						g.wsS3Tickers = make(chan []storage.Ticker, 1)
+						g.wsS3Trades = make(chan []storage.Trade, 1)
 					}
 				}
 			}
 
 			// Channel id is used to identify channel in subscribe success message of websocket server.
 			id++
-			e.channelIds[id] = [2]string{market.ID, info.Channel}
+			g.channelIds[id] = [2]string{market.ID, info.Channel}
 			val.id = id
 
 			val.mktCommitName = marketCommitName
-			e.cfgMap[key] = val
+			g.cfgMap[key] = val
 		}
 	}
 	return nil
 }
 
-func (e *gateio) connectWs(ctx context.Context) error {
-	ws, err := connector.NewWebsocket(ctx, &e.connCfg.WS, config.GateioWebsocketURL)
+func (g *gateio) connectWs(ctx context.Context) error {
+	ws, err := connector.NewWebsocket(ctx, &g.connCfg.WS, config.GateioWebsocketURL)
 	if err != nil {
 		if !errors.Is(err, ctx.Err()) {
 			logErrStack(err)
 		}
 		return err
 	}
-	e.ws = ws
+	g.ws = ws
 	log.Info().Str("exchange", "gateio").Msg("websocket connected")
 	return nil
 }
 
 // closeWsConnOnError closes websocket connection if there is any error in app context.
 // This will unblock all read and writes on websocket.
-func (e *gateio) closeWsConnOnError(ctx context.Context) error {
+func (g *gateio) closeWsConnOnError(ctx context.Context) error {
 	<-ctx.Done()
-	err := e.ws.Conn.Close()
+	err := g.ws.Conn.Close()
 	if err != nil {
 		return err
 	}
@@ -332,7 +375,7 @@ func (e *gateio) closeWsConnOnError(ctx context.Context) error {
 }
 
 // subWsChannel sends channel subscription requests to the websocket server.
-func (e *gateio) subWsChannel(market string, channel string, id int) error {
+func (g *gateio) subWsChannel(market string, channel string, id int) error {
 	switch channel {
 	case "ticker":
 		channel = "spot.tickers"
@@ -351,7 +394,7 @@ func (e *gateio) subWsChannel(market string, channel string, id int) error {
 		logErrStack(err)
 		return err
 	}
-	err = e.ws.Write(frame)
+	err = g.ws.Write(frame)
 	if err != nil {
 		if errors.Is(err, net.ErrClosed) {
 			err = errors.New("context canceled")
@@ -364,42 +407,42 @@ func (e *gateio) subWsChannel(market string, channel string, id int) error {
 }
 
 // readWs reads ticker / trade data from websocket channels.
-func (e *gateio) readWs(ctx context.Context) error {
+func (g *gateio) readWs(ctx context.Context) error {
 
 	// To avoid data race, creating a new local lookup map.
-	cfgLookup := make(map[cfgLookupKey]cfgLookupVal, len(e.cfgMap))
-	for k, v := range e.cfgMap {
+	cfgLookup := make(map[cfgLookupKey]cfgLookupVal, len(g.cfgMap))
+	for k, v := range g.cfgMap {
 		cfgLookup[k] = v
 	}
 
 	// See influxTimeVal struct doc for details.
 	itv := influxTimeVal{}
-	if e.influx != nil {
+	if g.influx != nil {
 		itv.TickerMap = make(map[string]int64)
 		itv.TradeMap = make(map[string]int64)
 	}
 
 	cd := commitData{
-		terTickers:        make([]storage.Ticker, 0, e.connCfg.Terminal.TickerCommitBuf),
-		terTrades:         make([]storage.Trade, 0, e.connCfg.Terminal.TradeCommitBuf),
-		mysqlTickers:      make([]storage.Ticker, 0, e.connCfg.MySQL.TickerCommitBuf),
-		mysqlTrades:       make([]storage.Trade, 0, e.connCfg.MySQL.TradeCommitBuf),
-		esTickers:         make([]storage.Ticker, 0, e.connCfg.ES.TickerCommitBuf),
-		esTrades:          make([]storage.Trade, 0, e.connCfg.ES.TradeCommitBuf),
-		influxTickers:     make([]storage.Ticker, 0, e.connCfg.InfluxDB.TickerCommitBuf),
-		influxTrades:      make([]storage.Trade, 0, e.connCfg.InfluxDB.TradeCommitBuf),
-		natsTickers:       make([]storage.Ticker, 0, e.connCfg.NATS.TickerCommitBuf),
-		natsTrades:        make([]storage.Trade, 0, e.connCfg.NATS.TradeCommitBuf),
-		clickHouseTickers: make([]storage.Ticker, 0, e.connCfg.ClickHouse.TickerCommitBuf),
-		clickHouseTrades:  make([]storage.Trade, 0, e.connCfg.ClickHouse.TradeCommitBuf),
-		s3Tickers:         make([]storage.Ticker, 0, e.connCfg.S3.TickerCommitBuf),
-		s3Trades:          make([]storage.Trade, 0, e.connCfg.S3.TradeCommitBuf),
+		terTickers:        make([]storage.Ticker, 0, g.connCfg.Terminal.TickerCommitBuf),
+		terTrades:         make([]storage.Trade, 0, g.connCfg.Terminal.TradeCommitBuf),
+		mysqlTickers:      make([]storage.Ticker, 0, g.connCfg.MySQL.TickerCommitBuf),
+		mysqlTrades:       make([]storage.Trade, 0, g.connCfg.MySQL.TradeCommitBuf),
+		esTickers:         make([]storage.Ticker, 0, g.connCfg.ES.TickerCommitBuf),
+		esTrades:          make([]storage.Trade, 0, g.connCfg.ES.TradeCommitBuf),
+		influxTickers:     make([]storage.Ticker, 0, g.connCfg.InfluxDB.TickerCommitBuf),
+		influxTrades:      make([]storage.Trade, 0, g.connCfg.InfluxDB.TradeCommitBuf),
+		natsTickers:       make([]storage.Ticker, 0, g.connCfg.NATS.TickerCommitBuf),
+		natsTrades:        make([]storage.Trade, 0, g.connCfg.NATS.TradeCommitBuf),
+		clickHouseTickers: make([]storage.Ticker, 0, g.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:  make([]storage.Trade, 0, g.connCfg.ClickHouse.TradeCommitBuf),
+		s3Tickers:         make([]storage.Ticker, 0, g.connCfg.S3.TickerCommitBuf),
+		s3Trades:          make([]storage.Trade, 0, g.connCfg.S3.TradeCommitBuf),
 	}
 
 	for {
 		select {
 		default:
-			frame, err := e.ws.Read()
+			frame, err := g.ws.Read()
 			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
 					err = errors.New("context canceled")
@@ -424,7 +467,7 @@ func (e *gateio) readWs(ctx context.Context) error {
 
 			if wr.ID != 0 {
 				if wr.Result.Status == "success" {
-					log.Debug().Str("exchange", "gateio").Str("func", "readWs").Str("market", e.channelIds[wr.ID][0]).Str("channel", e.channelIds[wr.ID][1]).Msg("channel subscribed")
+					log.Debug().Str("exchange", "gateio").Str("func", "readWs").Str("market", g.channelIds[wr.ID][0]).Str("channel", g.channelIds[wr.ID][1]).Msg("channel subscribed")
 					continue
 				} else {
 					wsSubErr, ok := wr.Error.(wsSubErrGateio)
@@ -456,7 +499,7 @@ func (e *gateio) readWs(ctx context.Context) error {
 					continue
 				}
 
-				err := e.processWs(ctx, &wr, &cd, &itv)
+				err := g.processWs(ctx, &wr, &cd, &itv)
 				if err != nil {
 					return err
 				}
@@ -473,7 +516,7 @@ func (e *gateio) readWs(ctx context.Context) error {
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData, itv *influxTimeVal) error {
+func (g *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData, itv *influxTimeVal) error {
 	switch wr.Channel {
 	case "ticker":
 		ticker := storage.Ticker{}
@@ -492,13 +535,13 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		ticker.Timestamp = time.Unix(wr.TickerTime, 0).UTC()
 
 		key := cfgLookupKey{market: ticker.MktID, channel: "ticker"}
-		val := e.cfgMap[key]
+		val := g.cfgMap[key]
 		if val.terStr {
 			cd.terTickersCount++
 			cd.terTickers = append(cd.terTickers, ticker)
-			if cd.terTickersCount == e.connCfg.Terminal.TickerCommitBuf {
+			if cd.terTickersCount == g.connCfg.Terminal.TickerCommitBuf {
 				select {
-				case e.wsTerTickers <- cd.terTickers:
+				case g.wsTerTickers <- cd.terTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -509,9 +552,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.mysqlStr {
 			cd.mysqlTickersCount++
 			cd.mysqlTickers = append(cd.mysqlTickers, ticker)
-			if cd.mysqlTickersCount == e.connCfg.MySQL.TickerCommitBuf {
+			if cd.mysqlTickersCount == g.connCfg.MySQL.TickerCommitBuf {
 				select {
-				case e.wsMysqlTickers <- cd.mysqlTickers:
+				case g.wsMysqlTickers <- cd.mysqlTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -522,9 +565,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.esStr {
 			cd.esTickersCount++
 			cd.esTickers = append(cd.esTickers, ticker)
-			if cd.esTickersCount == e.connCfg.ES.TickerCommitBuf {
+			if cd.esTickersCount == g.connCfg.ES.TickerCommitBuf {
 				select {
-				case e.wsEsTickers <- cd.esTickers:
+				case g.wsEsTickers <- cd.esTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -544,9 +587,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 
 			cd.influxTickersCount++
 			cd.influxTickers = append(cd.influxTickers, ticker)
-			if cd.influxTickersCount == e.connCfg.InfluxDB.TickerCommitBuf {
+			if cd.influxTickersCount == g.connCfg.InfluxDB.TickerCommitBuf {
 				select {
-				case e.wsInfluxTickers <- cd.influxTickers:
+				case g.wsInfluxTickers <- cd.influxTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -557,9 +600,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.natsStr {
 			cd.natsTickersCount++
 			cd.natsTickers = append(cd.natsTickers, ticker)
-			if cd.natsTickersCount == e.connCfg.NATS.TickerCommitBuf {
+			if cd.natsTickersCount == g.connCfg.NATS.TickerCommitBuf {
 				select {
-				case e.wsNatsTickers <- cd.natsTickers:
+				case g.wsNatsTickers <- cd.natsTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -570,9 +613,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.clickHouseStr {
 			cd.clickHouseTickersCount++
 			cd.clickHouseTickers = append(cd.clickHouseTickers, ticker)
-			if cd.clickHouseTickersCount == e.connCfg.ClickHouse.TickerCommitBuf {
+			if cd.clickHouseTickersCount == g.connCfg.ClickHouse.TickerCommitBuf {
 				select {
-				case e.wsClickHouseTickers <- cd.clickHouseTickers:
+				case g.wsClickHouseTickers <- cd.clickHouseTickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -583,9 +626,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.s3Str {
 			cd.s3TickersCount++
 			cd.s3Tickers = append(cd.s3Tickers, ticker)
-			if cd.s3TickersCount == e.connCfg.S3.TickerCommitBuf {
+			if cd.s3TickersCount == g.connCfg.S3.TickerCommitBuf {
 				select {
-				case e.wsS3Tickers <- cd.s3Tickers:
+				case g.wsS3Tickers <- cd.s3Tickers:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -633,13 +676,13 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		trade.Timestamp = time.Unix(0, int64(intPart)*int64(time.Millisecond)).UTC()
 
 		key := cfgLookupKey{market: trade.MktID, channel: "trade"}
-		val := e.cfgMap[key]
+		val := g.cfgMap[key]
 		if val.terStr {
 			cd.terTradesCount++
 			cd.terTrades = append(cd.terTrades, trade)
-			if cd.terTradesCount == e.connCfg.Terminal.TradeCommitBuf {
+			if cd.terTradesCount == g.connCfg.Terminal.TradeCommitBuf {
 				select {
-				case e.wsTerTrades <- cd.terTrades:
+				case g.wsTerTrades <- cd.terTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -650,9 +693,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.mysqlStr {
 			cd.mysqlTradesCount++
 			cd.mysqlTrades = append(cd.mysqlTrades, trade)
-			if cd.mysqlTradesCount == e.connCfg.MySQL.TradeCommitBuf {
+			if cd.mysqlTradesCount == g.connCfg.MySQL.TradeCommitBuf {
 				select {
-				case e.wsMysqlTrades <- cd.mysqlTrades:
+				case g.wsMysqlTrades <- cd.mysqlTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -663,9 +706,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.esStr {
 			cd.esTradesCount++
 			cd.esTrades = append(cd.esTrades, trade)
-			if cd.esTradesCount == e.connCfg.ES.TradeCommitBuf {
+			if cd.esTradesCount == g.connCfg.ES.TradeCommitBuf {
 				select {
-				case e.wsEsTrades <- cd.esTrades:
+				case g.wsEsTrades <- cd.esTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -685,9 +728,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 
 			cd.influxTradesCount++
 			cd.influxTrades = append(cd.influxTrades, trade)
-			if cd.influxTradesCount == e.connCfg.InfluxDB.TradeCommitBuf {
+			if cd.influxTradesCount == g.connCfg.InfluxDB.TradeCommitBuf {
 				select {
-				case e.wsInfluxTrades <- cd.influxTrades:
+				case g.wsInfluxTrades <- cd.influxTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -698,9 +741,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.natsStr {
 			cd.natsTradesCount++
 			cd.natsTrades = append(cd.natsTrades, trade)
-			if cd.natsTradesCount == e.connCfg.NATS.TradeCommitBuf {
+			if cd.natsTradesCount == g.connCfg.NATS.TradeCommitBuf {
 				select {
-				case e.wsNatsTrades <- cd.natsTrades:
+				case g.wsNatsTrades <- cd.natsTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -711,9 +754,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.clickHouseStr {
 			cd.clickHouseTradesCount++
 			cd.clickHouseTrades = append(cd.clickHouseTrades, trade)
-			if cd.clickHouseTradesCount == e.connCfg.ClickHouse.TradeCommitBuf {
+			if cd.clickHouseTradesCount == g.connCfg.ClickHouse.TradeCommitBuf {
 				select {
-				case e.wsClickHouseTrades <- cd.clickHouseTrades:
+				case g.wsClickHouseTrades <- cd.clickHouseTrades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -724,9 +767,9 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 		if val.s3Str {
 			cd.s3TradesCount++
 			cd.s3Trades = append(cd.s3Trades, trade)
-			if cd.s3TradesCount == e.connCfg.S3.TradeCommitBuf {
+			if cd.s3TradesCount == g.connCfg.S3.TradeCommitBuf {
 				select {
-				case e.wsS3Trades <- cd.s3Trades:
+				case g.wsS3Trades <- cd.s3Trades:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -738,11 +781,22 @@ func (e *gateio) processWs(ctx context.Context, wr *wsRespGateio, cd *commitData
 	return nil
 }
 
+func (g *gateio) connectRest() error {
+	rest, err := connector.GetREST()
+	if err != nil {
+		logErrStack(err)
+		return err
+	}
+	g.rest = rest
+	log.Info().Str("exchange", "gateio").Msg("REST connection setup is done")
+	return nil
+}
+
 // processREST queries exchange for ticker / trade data through REST API in configured intervals,
 // transforms it to a common ticker / trade store format,
 // buffers the same in memory and
 // then sends it to different storage systems for commit through go channels.
-func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
+func (g *gateio) processREST(ctx context.Context, mktID string, mktCommitName string, channel string, interval int) error {
 	var (
 		req *http.Request
 		q   url.Values
@@ -754,25 +808,25 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 	)
 
 	cd := commitData{
-		terTickers:        make([]storage.Ticker, 0, e.connCfg.Terminal.TickerCommitBuf),
-		terTrades:         make([]storage.Trade, 0, e.connCfg.Terminal.TradeCommitBuf),
-		mysqlTickers:      make([]storage.Ticker, 0, e.connCfg.MySQL.TickerCommitBuf),
-		mysqlTrades:       make([]storage.Trade, 0, e.connCfg.MySQL.TradeCommitBuf),
-		esTickers:         make([]storage.Ticker, 0, e.connCfg.ES.TickerCommitBuf),
-		esTrades:          make([]storage.Trade, 0, e.connCfg.ES.TradeCommitBuf),
-		influxTickers:     make([]storage.Ticker, 0, e.connCfg.InfluxDB.TickerCommitBuf),
-		influxTrades:      make([]storage.Trade, 0, e.connCfg.InfluxDB.TradeCommitBuf),
-		natsTickers:       make([]storage.Ticker, 0, e.connCfg.NATS.TickerCommitBuf),
-		natsTrades:        make([]storage.Trade, 0, e.connCfg.NATS.TradeCommitBuf),
-		clickHouseTickers: make([]storage.Ticker, 0, e.connCfg.ClickHouse.TickerCommitBuf),
-		clickHouseTrades:  make([]storage.Trade, 0, e.connCfg.ClickHouse.TradeCommitBuf),
-		s3Tickers:         make([]storage.Ticker, 0, e.connCfg.S3.TickerCommitBuf),
-		s3Trades:          make([]storage.Trade, 0, e.connCfg.S3.TradeCommitBuf),
+		terTickers:        make([]storage.Ticker, 0, g.connCfg.Terminal.TickerCommitBuf),
+		terTrades:         make([]storage.Trade, 0, g.connCfg.Terminal.TradeCommitBuf),
+		mysqlTickers:      make([]storage.Ticker, 0, g.connCfg.MySQL.TickerCommitBuf),
+		mysqlTrades:       make([]storage.Trade, 0, g.connCfg.MySQL.TradeCommitBuf),
+		esTickers:         make([]storage.Ticker, 0, g.connCfg.ES.TickerCommitBuf),
+		esTrades:          make([]storage.Trade, 0, g.connCfg.ES.TradeCommitBuf),
+		influxTickers:     make([]storage.Ticker, 0, g.connCfg.InfluxDB.TickerCommitBuf),
+		influxTrades:      make([]storage.Trade, 0, g.connCfg.InfluxDB.TradeCommitBuf),
+		natsTickers:       make([]storage.Ticker, 0, g.connCfg.NATS.TickerCommitBuf),
+		natsTrades:        make([]storage.Trade, 0, g.connCfg.NATS.TradeCommitBuf),
+		clickHouseTickers: make([]storage.Ticker, 0, g.connCfg.ClickHouse.TickerCommitBuf),
+		clickHouseTrades:  make([]storage.Trade, 0, g.connCfg.ClickHouse.TradeCommitBuf),
+		s3Tickers:         make([]storage.Ticker, 0, g.connCfg.S3.TickerCommitBuf),
+		s3Trades:          make([]storage.Trade, 0, g.connCfg.S3.TradeCommitBuf),
 	}
 
 	switch channel {
 	case "ticker":
-		req, err = e.rest.Request(ctx, "GET", config.GateioRESTBaseURL+"spot/tickers")
+		req, err = g.rest.Request(ctx, "GET", config.GateioRESTBaseURL+"spot/tickers")
 		if err != nil {
 			if !errors.Is(err, ctx.Err()) {
 				logErrStack(err)
@@ -782,7 +836,7 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 		q = req.URL.Query()
 		q.Add("currency_pair", mktID)
 	case "trade":
-		req, err = e.rest.Request(ctx, "GET", config.GateioRESTBaseURL+"spot/trades")
+		req, err = g.rest.Request(ctx, "GET", config.GateioRESTBaseURL+"spot/trades")
 		if err != nil {
 			if !errors.Is(err, ctx.Err()) {
 				logErrStack(err)
@@ -808,7 +862,7 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 			switch channel {
 			case "ticker":
 				req.URL.RawQuery = q.Encode()
-				resp, err := e.rest.Do(req)
+				resp, err := g.rest.Do(req)
 				if err != nil {
 					if !errors.Is(err, ctx.Err()) {
 						logErrStack(err)
@@ -841,12 +895,18 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 				}
 
 				key := cfgLookupKey{market: ticker.MktID, channel: "ticker"}
-				val := e.cfgMap[key]
+				val := g.cfgMap[key]
 				if val.terStr {
 					cd.terTickersCount++
 					cd.terTickers = append(cd.terTickers, ticker)
-					if cd.terTickersCount == e.connCfg.Terminal.TickerCommitBuf {
-						e.ter.CommitTickers(ctx, cd.terTickers)
+					if cd.terTickersCount == g.connCfg.Terminal.TickerCommitBuf {
+						err := g.ter.CommitTickers(ctx, cd.terTickers)
+						if err != nil {
+							if !errors.Is(err, ctx.Err()) {
+								logErrStack(err)
+							}
+							return err
+						}
 						cd.terTickersCount = 0
 						cd.terTickers = nil
 					}
@@ -854,8 +914,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.mysqlStr {
 					cd.mysqlTickersCount++
 					cd.mysqlTickers = append(cd.mysqlTickers, ticker)
-					if cd.mysqlTickersCount == e.connCfg.MySQL.TickerCommitBuf {
-						err := e.mysql.CommitTickers(ctx, cd.mysqlTickers)
+					if cd.mysqlTickersCount == g.connCfg.MySQL.TickerCommitBuf {
+						err := g.mysql.CommitTickers(ctx, cd.mysqlTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -869,8 +929,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.esStr {
 					cd.esTickersCount++
 					cd.esTickers = append(cd.esTickers, ticker)
-					if cd.esTickersCount == e.connCfg.ES.TickerCommitBuf {
-						err := e.es.CommitTickers(ctx, cd.esTickers)
+					if cd.esTickersCount == g.connCfg.ES.TickerCommitBuf {
+						err := g.es.CommitTickers(ctx, cd.esTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -891,8 +951,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 
 					cd.influxTickersCount++
 					cd.influxTickers = append(cd.influxTickers, ticker)
-					if cd.influxTickersCount == e.connCfg.InfluxDB.TickerCommitBuf {
-						err := e.influx.CommitTickers(ctx, cd.influxTickers)
+					if cd.influxTickersCount == g.connCfg.InfluxDB.TickerCommitBuf {
+						err := g.influx.CommitTickers(ctx, cd.influxTickers)
 						if err != nil {
 							if !errors.Is(err, ctx.Err()) {
 								logErrStack(err)
@@ -906,8 +966,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.natsStr {
 					cd.natsTickersCount++
 					cd.natsTickers = append(cd.natsTickers, ticker)
-					if cd.natsTickersCount == e.connCfg.NATS.TickerCommitBuf {
-						err := e.nats.CommitTickers(ctx, cd.natsTickers)
+					if cd.natsTickersCount == g.connCfg.NATS.TickerCommitBuf {
+						err := g.nats.CommitTickers(ctx, cd.natsTickers)
 						if err != nil {
 							return err
 						}
@@ -918,8 +978,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.clickHouseStr {
 					cd.clickHouseTickersCount++
 					cd.clickHouseTickers = append(cd.clickHouseTickers, ticker)
-					if cd.clickHouseTickersCount == e.connCfg.ClickHouse.TickerCommitBuf {
-						err := e.clickhouse.CommitTickers(ctx, cd.clickHouseTickers)
+					if cd.clickHouseTickersCount == g.connCfg.ClickHouse.TickerCommitBuf {
+						err := g.clickhouse.CommitTickers(ctx, cd.clickHouseTickers)
 						if err != nil {
 							return err
 						}
@@ -930,8 +990,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 				if val.s3Str {
 					cd.s3TickersCount++
 					cd.s3Tickers = append(cd.s3Tickers, ticker)
-					if cd.s3TickersCount == e.connCfg.S3.TickerCommitBuf {
-						err := e.s3.CommitTickers(ctx, cd.s3Tickers)
+					if cd.s3TickersCount == g.connCfg.S3.TickerCommitBuf {
+						err := g.s3.CommitTickers(ctx, cd.s3Tickers)
 						if err != nil {
 							return err
 						}
@@ -941,7 +1001,7 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 				}
 			case "trade":
 				req.URL.RawQuery = q.Encode()
-				resp, err := e.rest.Do(req)
+				resp, err := g.rest.Do(req)
 				if err != nil {
 					if !errors.Is(err, ctx.Err()) {
 						logErrStack(err)
@@ -1000,12 +1060,18 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 					}
 
 					key := cfgLookupKey{market: trade.MktID, channel: "trade"}
-					val := e.cfgMap[key]
+					val := g.cfgMap[key]
 					if val.terStr {
 						cd.terTradesCount++
 						cd.terTrades = append(cd.terTrades, trade)
-						if cd.terTradesCount == e.connCfg.Terminal.TradeCommitBuf {
-							e.ter.CommitTrades(ctx, cd.terTrades)
+						if cd.terTradesCount == g.connCfg.Terminal.TradeCommitBuf {
+							err := g.ter.CommitTrades(ctx, cd.terTrades)
+							if err != nil {
+								if !errors.Is(err, ctx.Err()) {
+									logErrStack(err)
+								}
+								return err
+							}
 							cd.terTradesCount = 0
 							cd.terTrades = nil
 						}
@@ -1013,8 +1079,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.mysqlStr {
 						cd.mysqlTradesCount++
 						cd.mysqlTrades = append(cd.mysqlTrades, trade)
-						if cd.mysqlTradesCount == e.connCfg.MySQL.TradeCommitBuf {
-							err := e.mysql.CommitTrades(ctx, cd.mysqlTrades)
+						if cd.mysqlTradesCount == g.connCfg.MySQL.TradeCommitBuf {
+							err := g.mysql.CommitTrades(ctx, cd.mysqlTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1028,8 +1094,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.esStr {
 						cd.esTradesCount++
 						cd.esTrades = append(cd.esTrades, trade)
-						if cd.esTradesCount == e.connCfg.ES.TradeCommitBuf {
-							err := e.es.CommitTrades(ctx, cd.esTrades)
+						if cd.esTradesCount == g.connCfg.ES.TradeCommitBuf {
+							err := g.es.CommitTrades(ctx, cd.esTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1050,8 +1116,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 
 						cd.influxTradesCount++
 						cd.influxTrades = append(cd.influxTrades, trade)
-						if cd.influxTradesCount == e.connCfg.InfluxDB.TradeCommitBuf {
-							err := e.influx.CommitTrades(ctx, cd.influxTrades)
+						if cd.influxTradesCount == g.connCfg.InfluxDB.TradeCommitBuf {
+							err := g.influx.CommitTrades(ctx, cd.influxTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1065,8 +1131,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.natsStr {
 						cd.natsTradesCount++
 						cd.natsTrades = append(cd.natsTrades, trade)
-						if cd.natsTradesCount == e.connCfg.NATS.TradeCommitBuf {
-							err := e.nats.CommitTrades(ctx, cd.natsTrades)
+						if cd.natsTradesCount == g.connCfg.NATS.TradeCommitBuf {
+							err := g.nats.CommitTrades(ctx, cd.natsTrades)
 							if err != nil {
 								return err
 							}
@@ -1077,8 +1143,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.clickHouseStr {
 						cd.clickHouseTradesCount++
 						cd.clickHouseTrades = append(cd.clickHouseTrades, trade)
-						if cd.clickHouseTradesCount == e.connCfg.ClickHouse.TradeCommitBuf {
-							err := e.clickhouse.CommitTrades(ctx, cd.clickHouseTrades)
+						if cd.clickHouseTradesCount == g.connCfg.ClickHouse.TradeCommitBuf {
+							err := g.clickhouse.CommitTrades(ctx, cd.clickHouseTrades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
@@ -1092,8 +1158,8 @@ func (e *gateio) processREST(ctx context.Context, mktID string, mktCommitName st
 					if val.s3Str {
 						cd.s3TradesCount++
 						cd.s3Trades = append(cd.s3Trades, trade)
-						if cd.s3TradesCount == e.connCfg.S3.TradeCommitBuf {
-							err := e.s3.CommitTrades(ctx, cd.s3Trades)
+						if cd.s3TradesCount == g.connCfg.S3.TradeCommitBuf {
+							err := g.s3.CommitTrades(ctx, cd.s3Trades)
 							if err != nil {
 								if !errors.Is(err, ctx.Err()) {
 									logErrStack(err)
