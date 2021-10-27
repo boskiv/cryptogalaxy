@@ -128,6 +128,11 @@ const (
 	LBankWebsocketURL = "wss://www.lbkex.net/ws/V2/"
 	// LBankRESTBaseURL is the lbank exchange base REST url.
 	LBankRESTBaseURL = "https://www.lbkex.net/v2/"
+
+	// CoinFlexWebsocketURL is the coinflex exchange websocket url.
+	CoinFlexWebsocketURL = "wss://v2api.coinflex.com/v2/websocket"
+	// CoinFlexRESTBaseURL is the coinflex exchange base REST url.
+	CoinFlexRESTBaseURL = "https://v2api.coinflex.com/v2/"
 )
 
 // Config contains config values for the app.

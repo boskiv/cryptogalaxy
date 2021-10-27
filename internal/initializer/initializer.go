@@ -274,6 +274,10 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 			appErrGroup.Go(func() error {
 				return exchange.StartLBank(appCtx, markets, &retry, &cfg.Connection)
 			})
+		case "coinflex":
+			appErrGroup.Go(func() error {
+				return exchange.StartCoinFlex(appCtx, markets, &retry, &cfg.Connection)
+			})
 		}
 	}
 

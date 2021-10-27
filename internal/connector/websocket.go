@@ -152,3 +152,13 @@ func (w *Websocket) ReadTextOrZlibBinary() ([]byte, error) {
 	}
 	return result, nil
 }
+
+// Ping writes ping frame on websocket connection.
+// (Websocket standard PING frame, not the application level one)
+func (w *Websocket) Ping() error {
+	err := wsutil.WriteClientMessage(w.Conn, ws.OpPing, []byte{})
+	if err != nil {
+		return err
+	}
+	return nil
+}

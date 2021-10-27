@@ -30,6 +30,7 @@ Cryptogalaxy is an app which will get any cryptocurrencies ticker and trade data
 <div>24. <img src="./docs/exchange/mexo.png" title="Mexo" height="24" width="24"/> Mexo</div>
 <div>25. <img src="./docs/exchange/bequant.png" title="BEQUANT" height="24" width="24"/> BEQUANT</div>
 <div>26. <img src="./docs/exchange/lbank.png" title="LBank" height="24" width="24"/> LBank</div>
+<div>27. <img src="./docs/exchange/coinflex.png" title="CoinFLEX" height="24" width="24"/> CoinFLEX</div>
  
 <p><br>Currently supported storages :<br></p>
 
@@ -93,7 +94,7 @@ Cryptogalaxy is an app which will get any cryptocurrencies ticker and trade data
  
 * App creates a single websocket connection per exchange. So, you may hit the threshold of no. of markets you want to get the data from it. In that case you need to run a new instance of the app for more markets.
  
-*Note :* Out of 26 currently supported exchanges, this is a real problem only in Bitfinex which is restricting 25 public channel subscriptions per websocket connection. So if you want to subscribe to more than 25 markets data from Bitfinex through websocket, then you need to have one more instance of the app running.
+*Note :* Out of 27 currently supported exchanges, this is a real problem only in Bitfinex which is restricting 25 public channel subscriptions per websocket connection. So if you want to subscribe to more than 25 markets data from Bitfinex through websocket, then you need to have one more instance of the app running.
  
 ## Why the app
  
@@ -333,7 +334,7 @@ Example configuration file can be found at [./examples/config.json](./examples/c
  
 * **exchanges : name** : Name of the exchange from which you need data.
  
-Possible values : ftx, coinbase-pro, binance, bitfinex, bhex, huobi, gateio, kucoin, bitstamp, bybit, probit, gemini, bitmart, digifinex, ascendex, kraken, binance-us, okex, ftx-us, hitbtc, aax, bitrue, btse, mexo, bequant, lbank.
+Possible values : ftx, coinbase-pro, binance, bitfinex, bhex, huobi, gateio, kucoin, bitstamp, bybit, probit, gemini, bitmart, digifinex, ascendex, kraken, binance-us, okex, ftx-us, hitbtc, aax, bitrue, btse, mexo, bequant, lbank, coinflex.
  
 * **exchanges : markets : id** : Market symbol for which data is needed. This has to be the exact one defined by exchange.
  

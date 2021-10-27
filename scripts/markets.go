@@ -618,6 +618,29 @@ func main() {
 	w.Flush()
 	fmt.Println("got market info from LBank")
 
+	// CoinFlex exchange.
+	resp, err = http.Get(config.CoinFlexRESTBaseURL + "all/markets")
+	if err != nil {
+		log.Error().Err(err).Str("exchange", "coinflex").Msg("exchange request for markets")
+		return
+	}
+	coinflexMarkets := coinflexResp{}
+	if err = jsoniter.NewDecoder(resp.Body).Decode(&coinflexMarkets); err != nil {
+		log.Error().Err(err).Str("exchange", "coinflex").Msg("convert markets response")
+		return
+	}
+	resp.Body.Close()
+	for _, record := range coinflexMarkets.Data {
+		if record.Type == "SPOT" {
+			if err = w.Write([]string{"coinflex", record.MarketCode}); err != nil {
+				log.Error().Err(err).Str("exchange", "coinflex").Msg("writing markets to csv")
+				return
+			}
+		}
+	}
+	w.Flush()
+	fmt.Println("got market info from CoinFLEX")
+
 	fmt.Println("CSV file generated successfully at ./examples/markets.csv")
 }
 
@@ -783,4 +806,12 @@ type bequantResp struct {
 
 type lbankResp struct {
 	Data []string `json:"data"`
+}
+
+type coinflexResp struct {
+	Data []coinflexRespData `json:"data"`
+}
+type coinflexRespData struct {
+	MarketCode string `json:"marketCode"`
+	Type       string `json:"type"`
 }
