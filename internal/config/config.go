@@ -123,6 +123,11 @@ const (
 	BequantWebsocketURL = "wss://api.bequant.io/api/3/ws/public"
 	// BequantRESTBaseURL is the bequant exchange base REST url.
 	BequantRESTBaseURL = "https://api.bequant.io/api/3/public/"
+
+	// LBankWebsocketURL is the lbank exchange websocket url.
+	LBankWebsocketURL = "wss://www.lbkex.net/ws/V2/"
+	// LBankRESTBaseURL is the lbank exchange base REST url.
+	LBankRESTBaseURL = "https://www.lbkex.net/v2/"
 )
 
 // Config contains config values for the app.
