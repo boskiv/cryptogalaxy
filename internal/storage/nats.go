@@ -20,26 +20,28 @@ var nats NATS
 
 // InitNATS initializes nats connection with configured values.
 func InitNATS(cfg *config.NATS) (*NATS, error) {
-	basic, err := nc.Connect(strings.Join(cfg.Addresses, ","),
-		nc.Name("Cryptogalaxy Publisher"),
-		nc.Timeout(time.Duration(cfg.ReqTimeoutSec)*time.Second),
-		nc.PingInterval(-1),
-		nc.NoReconnect(),
-		nc.UserInfo(cfg.Username, cfg.Password))
-	if err != nil {
-		return nil, err
-	}
+	if nats.Basic == nil {
+		basic, err := nc.Connect(strings.Join(cfg.Addresses, ","),
+			nc.Name("Cryptogalaxy Publisher"),
+			nc.Timeout(time.Duration(cfg.ReqTimeoutSec)*time.Second),
+			nc.PingInterval(-1),
+			nc.NoReconnect(),
+			nc.UserInfo(cfg.Username, cfg.Password))
+		if err != nil {
+			return nil, err
+		}
 
-	// Client for structured data publish.
-	client, err := nc.NewEncodedConn(basic, nc.JSON_ENCODER)
-	if err != nil {
-		return nil, err
-	}
+		// Client for structured data publish.
+		client, err := nc.NewEncodedConn(basic, nc.JSON_ENCODER)
+		if err != nil {
+			return nil, err
+		}
 
-	nats = NATS{
-		Basic:  basic,
-		Client: client,
-		Cfg:    cfg,
+		nats = NATS{
+			Basic:  basic,
+			Client: client,
+			Cfg:    cfg,
+		}
 	}
 	return &nats, nil
 }
@@ -62,14 +64,6 @@ func (n *NATS) CommitTickers(_ context.Context, data []Ticker) error {
 			return err
 		}
 	}
-
-	// Maybe data is pushed to NATS server before the flush also.
-	// Because client library of NATS automatically buffers and pushes the data to server.
-	// This is just to confirm.
-	err := n.Client.Flush()
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -85,14 +79,6 @@ func (n *NATS) CommitTrades(_ context.Context, data []Trade) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	// Maybe data is pushed to NATS server before the flush also.
-	// Because client library of NATS automatically buffers and pushes the data to server.
-	// This is just to confirm.
-	err := n.Client.Flush()
-	if err != nil {
-		return err
 	}
 	return nil
 }

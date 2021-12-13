@@ -381,7 +381,7 @@ func (g *gemini) subWsChannel(market string) error {
 		Type:          "subscribe",
 		Subscriptions: channels,
 	}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

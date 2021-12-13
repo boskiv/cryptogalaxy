@@ -403,7 +403,7 @@ func (b *bitrue) subWsChannel(market string, channel string) error {
 	market = strings.ToLower(market)
 	sub.Params.Channel = "market_" + market + "_" + channel
 	sub.Params.CbID = market
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

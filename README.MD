@@ -8,29 +8,29 @@ Cryptogalaxy is an app which will get any cryptocurrencies ticker and trade data
 <div>2. <img src="./docs/exchange/coinbase-pro.png" title="Coinbase Pro" height="24" width="24"/> Coinbase Pro</div>
 <div>3. <img src="./docs/exchange/binance.png" title="Binance" height="24" width="24"/> Binance</div>
 <div>4. <img src="./docs/exchange/bitfinex.png" title="Bitfinex" height="24" width="24"/> Bitfinex</div>
-<div>5. <img src="./docs/exchange/bhex.png" title="BHEX" height="24" width="24"/> BHEX</div>
-<div>6. <img src="./docs/exchange/huobi.png" title="Huobi" height="24" width="24"/> Huobi</div>
-<div>7. <img src="./docs/exchange/gateio.png" title="Gateio" height="24" width="24"/> Gateio</div>
-<div>8. <img src="./docs/exchange/kucoin.png" title="Kucoin" height="24" width="24"/> Kucoin</div>
-<div>9. <img src="./docs/exchange/bitstamp.png" title="Bitstamp" height="24" width="24"/> Bitstamp</div>
-<div>10. <img src="./docs/exchange/bybit.png" title="Bybit" height="24" width="24"/> Bybit</div>
-<div>11. <img src="./docs/exchange/probit.png" title="Probit" height="24" width="24"/> Probit</div>
-<div>12. <img src="./docs/exchange/gemini.png" title="Gemini" height="24" width="24"/> Gemini</div>
-<div>13. <img src="./docs/exchange/bitmart.png" title="Bitmart" height="24" width="24"/> Bitmart</div>
-<div>14. <img src="./docs/exchange/digifinex.png" title="Digifinex" height="24" width="24"/> Digifinex</div>
-<div>15. <img src="./docs/exchange/ascendex.png" title="AscendEX" height="24" width="24"/> AscendEX</div>
-<div>16. <img src="./docs/exchange/kraken.png" title="Kraken" height="24" width="24"/> Kraken</div>
-<div>17. <img src="./docs/exchange/binance-us.png" title="Binance US" height="24" width="24"/> Binance US</div>
-<div>18. <img src="./docs/exchange/okex.png" title="OKEx" height="24" width="24"/> OKEx</div>
-<div>19. <img src="./docs/exchange/ftx-us.png" title="FTX US" height="24" width="24"/> FTX US</div>
-<div>20. <img src="./docs/exchange/hitbtc.png" title="HitBTC" height="24" width="24"/> HitBTC</div>
-<div>21. <img src="./docs/exchange/aax.png" title="AAX" height="24" width="24"/> AAX</div>
-<div>22. <img src="./docs/exchange/bitrue.png" title="Bitrue" height="24" width="24"/> Bitrue</div>
-<div>23. <img src="./docs/exchange/btse.png" title="BTSE" height="24" width="24"/> BTSE</div>
-<div>24. <img src="./docs/exchange/mexo.png" title="Mexo" height="24" width="24"/> Mexo</div>
-<div>25. <img src="./docs/exchange/bequant.png" title="BEQUANT" height="24" width="24"/> BEQUANT</div>
-<div>26. <img src="./docs/exchange/lbank.png" title="LBank" height="24" width="24"/> LBank</div>
-<div>27. <img src="./docs/exchange/coinflex.png" title="CoinFLEX" height="24" width="24"/> CoinFLEX</div>
+<div>5. <img src="./docs/exchange/huobi.png" title="Huobi" height="24" width="24"/> Huobi</div>
+<div>6. <img src="./docs/exchange/gateio.png" title="Gateio" height="24" width="24"/> Gateio</div>
+<div>7. <img src="./docs/exchange/kucoin.png" title="Kucoin" height="24" width="24"/> Kucoin</div>
+<div>8. <img src="./docs/exchange/bitstamp.png" title="Bitstamp" height="24" width="24"/> Bitstamp</div>
+<div>9. <img src="./docs/exchange/bybit.png" title="Bybit" height="24" width="24"/> Bybit</div>
+<div>10. <img src="./docs/exchange/probit.png" title="Probit" height="24" width="24"/> Probit</div>
+<div>11. <img src="./docs/exchange/gemini.png" title="Gemini" height="24" width="24"/> Gemini</div>
+<div>12. <img src="./docs/exchange/bitmart.png" title="Bitmart" height="24" width="24"/> Bitmart</div>
+<div>13. <img src="./docs/exchange/digifinex.png" title="Digifinex" height="24" width="24"/> Digifinex</div>
+<div>14. <img src="./docs/exchange/ascendex.png" title="AscendEX" height="24" width="24"/> AscendEX</div>
+<div>15. <img src="./docs/exchange/kraken.png" title="Kraken" height="24" width="24"/> Kraken</div>
+<div>16. <img src="./docs/exchange/binance-us.png" title="Binance US" height="24" width="24"/> Binance US</div>
+<div>17. <img src="./docs/exchange/okex.png" title="OKEx" height="24" width="24"/> OKEx</div>
+<div>18. <img src="./docs/exchange/ftx-us.png" title="FTX US" height="24" width="24"/> FTX US</div>
+<div>19. <img src="./docs/exchange/hitbtc.png" title="HitBTC" height="24" width="24"/> HitBTC</div>
+<div>20. <img src="./docs/exchange/aax.png" title="AAX" height="24" width="24"/> AAX</div>
+<div>21. <img src="./docs/exchange/bitrue.png" title="Bitrue" height="24" width="24"/> Bitrue</div>
+<div>22. <img src="./docs/exchange/btse.png" title="BTSE" height="24" width="24"/> BTSE</div>
+<div>23. <img src="./docs/exchange/mexo.png" title="Mexo" height="24" width="24"/> Mexo</div>
+<div>24. <img src="./docs/exchange/bequant.png" title="BEQUANT" height="24" width="24"/> BEQUANT</div>
+<div>25. <img src="./docs/exchange/lbank.png" title="LBank" height="24" width="24"/> LBank</div>
+<div>26. <img src="./docs/exchange/coinflex.png" title="CoinFLEX" height="24" width="24"/> CoinFLEX</div>
+<div>27. <img src="./docs/exchange/binance.png" title="Binance TR" height="24" width="24"/> Binance TR</div>
  
 <p><br>Currently supported storages :<br></p>
 
@@ -334,7 +334,7 @@ Example configuration file can be found at [./examples/config.json](./examples/c
  
 * **exchanges : name** : Name of the exchange from which you need data.
  
-Possible values : ftx, coinbase-pro, binance, bitfinex, bhex, huobi, gateio, kucoin, bitstamp, bybit, probit, gemini, bitmart, digifinex, ascendex, kraken, binance-us, okex, ftx-us, hitbtc, aax, bitrue, btse, mexo, bequant, lbank, coinflex.
+Possible values : ftx, coinbase-pro, binance, bitfinex, huobi, gateio, kucoin, bitstamp, bybit, probit, gemini, bitmart, digifinex, ascendex, kraken, binance-us, okex, ftx-us, hitbtc, aax, bitrue, btse, mexo, bequant, lbank, coinflex, binance-tr.
  
 * **exchanges : markets : id** : Market symbol for which data is needed. This has to be the exact one defined by exchange.
  
@@ -591,7 +591,7 @@ Possible values : > 0
 *Note :* All REST API and websocket methods buffers data locally and then commits.
 So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
  
-NATS client library automatically buffers messages before sending them to the server which we cannot configure. So if the ticker_commit_buffer number is very big, then sometimes the data may already be pushed to the server by the client library before the app flush. This is not at all the concern, but mentioned here to just as an information to know.
+NATS client library automatically buffers messages before sending them to the server which we cannot configure. So if the ticker_commit_buffer number is very big, then sometimes the data which is first internally buffered in the memory by the Cryptogalaxy app is pushed to the NATS server in chunks by the NATS client library so the last few trades may be still buffered for the next commit. This is not at all the concern, but mentioned here to just as an information to know.
  
 * **connection : nats : trade_commit_buffer** : Size of market trades to be buffered in memory before publishing data to NATS.
  
@@ -600,7 +600,7 @@ Possible values : > 0
 *Note :* All REST API and websocket methods buffers data locally and then commits.
 So for example, if the specified number is 10 and has multiple market data points then each corresponding method commits data once it reaches the buffer size limit 10 and not the time all methods combined buffer reaches cumulative size of 10. 
  
-NATS client library automatically buffers messages before sending them to the server which we cannot configure. So if the trade_commit_buffer number is very big, then sometimes the data may already be pushed to the server by the client library before the app flush. This is not at all the concern, but mentioned here to just as an information to know.
+NATS client library automatically buffers messages before sending them to the server which we cannot configure. So if the ticker_commit_buffer number is very big, then sometimes the data which is first internally buffered in the memory by the Cryptogalaxy app is pushed to the NATS server in chunks by the NATS client library so the last few trades may be still buffered for the next commit. This is not at all the concern, but mentioned here to just as an information to know.
 
 ***ClickHouse settings*** : 
  

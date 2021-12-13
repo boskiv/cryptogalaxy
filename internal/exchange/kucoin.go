@@ -499,7 +499,7 @@ func (k *kucoin) subWsChannel(market string, channel string, id int) error {
 		PrivateChannel: false,
 		Response:       true,
 	}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

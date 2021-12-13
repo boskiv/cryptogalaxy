@@ -397,7 +397,7 @@ func (l *lbank) subWsChannel(market string, channel string) error {
 		Subscribe: channel,
 		Pair:      market,
 	}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

@@ -397,7 +397,7 @@ func (b *binance) subWsChannel(market string, channel string, id int) error {
 		Params: [1]string{channel},
 		ID:     id,
 	}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

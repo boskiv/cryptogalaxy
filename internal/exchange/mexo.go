@@ -419,7 +419,7 @@ func (m *mexo) subWsChannel(market string, channel string) error {
 		Event:  "sub",
 	}
 	sub.Params.Binary = false
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

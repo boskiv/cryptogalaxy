@@ -114,27 +114,6 @@ func main() {
 	w.Flush()
 	fmt.Println("got market info from Bitfinex")
 
-	// BHEX exchange.
-	resp, err = http.Get(config.BHEXRESTBaseURL + "openapi/v1/pairs")
-	if err != nil {
-		log.Error().Err(err).Str("exchange", "hbtc").Msg("exchange request for markets")
-		return
-	}
-	hbtcMarkets := []hbtcRespRes{}
-	if err = jsoniter.NewDecoder(resp.Body).Decode(&hbtcMarkets); err != nil {
-		log.Error().Err(err).Str("exchange", "hbtc").Msg("convert markets response")
-		return
-	}
-	resp.Body.Close()
-	for _, record := range hbtcMarkets {
-		if err = w.Write([]string{"bhex", record.Name}); err != nil {
-			log.Error().Err(err).Str("exchange", "hbtc").Msg("writing markets to csv")
-			return
-		}
-	}
-	w.Flush()
-	fmt.Println("got market info from BHEX")
-
 	// Huobi exchange.
 	resp, err = http.Get(config.HuobiRESTBaseURL + "v1/common/symbols")
 	if err != nil {
@@ -641,6 +620,29 @@ func main() {
 	w.Flush()
 	fmt.Println("got market info from CoinFLEX")
 
+	// Binance TR exchange.
+	resp, err = http.Get(config.BinanceTRRESTMktBaseURL + "common/symbols")
+	if err != nil {
+		log.Error().Err(err).Str("exchange", "binance-tr").Msg("exchange request for markets")
+		return
+	}
+	binanceTRMarkets := binanceTRResp{}
+	if err = jsoniter.NewDecoder(resp.Body).Decode(&binanceTRMarkets); err != nil {
+		log.Error().Err(err).Str("exchange", "binance-tr").Msg("convert markets response")
+		return
+	}
+	resp.Body.Close()
+	for _, record := range binanceTRMarkets.Data.List {
+		if record.Type == 1 && record.Status == 1 {
+			if err = w.Write([]string{"binance-tr", record.Symbol}); err != nil {
+				log.Error().Err(err).Str("exchange", "binance-tr").Msg("writing markets to csv")
+				return
+			}
+		}
+	}
+	w.Flush()
+	fmt.Println("got market info from Binance TR")
+
 	fmt.Println("CSV file generated successfully at ./examples/markets.csv")
 }
 
@@ -666,10 +668,6 @@ type binanceRespRes struct {
 }
 
 type bitfinexResp [][]string
-
-type hbtcRespRes struct {
-	Name string `json:"symbol"`
-}
 
 type huobiResp struct {
 	Data []huobiRespData `json:"data"`
@@ -814,4 +812,16 @@ type coinflexResp struct {
 type coinflexRespData struct {
 	MarketCode string `json:"marketCode"`
 	Type       string `json:"type"`
+}
+
+type binanceTRResp struct {
+	Data binanceTRRespData `json:"data"`
+}
+type binanceTRRespData struct {
+	List []binanceTRList `json:"list"`
+}
+type binanceTRList struct {
+	Type   int    `json:"type"`
+	Symbol string `json:"symbol"`
+	Status int    `json:"spotTradingEnable"`
 }

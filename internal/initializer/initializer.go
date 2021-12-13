@@ -186,10 +186,6 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 			appErrGroup.Go(func() error {
 				return exchange.StartBitfinex(appCtx, markets, &retry, &cfg.Connection)
 			})
-		case "bhex":
-			appErrGroup.Go(func() error {
-				return exchange.StartHbtc(appCtx, markets, &retry, &cfg.Connection)
-			})
 		case "huobi":
 			appErrGroup.Go(func() error {
 				return exchange.StartHuobi(appCtx, markets, &retry, &cfg.Connection)
@@ -277,6 +273,10 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 		case "coinflex":
 			appErrGroup.Go(func() error {
 				return exchange.StartCoinFlex(appCtx, markets, &retry, &cfg.Connection)
+			})
+		case "binance-tr":
+			appErrGroup.Go(func() error {
+				return exchange.StartBinanceTR(appCtx, markets, &retry, &cfg.Connection)
 			})
 		}
 	}

@@ -371,7 +371,7 @@ func (b *btse) subWsChannel(market string) error {
 		Op:   "subscribe",
 		Args: [1]string{channel},
 	}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

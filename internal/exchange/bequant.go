@@ -396,7 +396,7 @@ func (b *bequant) subWsChannel(market string, channel string, id int) error {
 		ID:      id,
 	}
 	sub.Params.Symbols = [1]string{market}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

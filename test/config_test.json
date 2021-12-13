@@ -381,101 +381,6 @@
             }
         },
         {
-            "name": "bhex",
-            "markets": [
-                {
-                    "id": "BTCUSDT",
-                    "info": [
-                        {
-                            "channel": "ticker",
-                            "connector": "websocket",
-                            "websocket_consider_interval_sec": 0,
-                            "storages": [
-                                "mysql",
-                                "elastic_search",
-                                "influxdb",
-                                "nats",
-                                "clickhouse",
-                                "s3"
-                            ]
-                        },
-                        {
-                            "channel": "trade",
-                            "connector": "websocket",
-                            "websocket_consider_interval_sec": 0,
-                            "storages": [
-                                "mysql",
-                                "elastic_search",
-                                "influxdb",
-                                "nats",
-                                "clickhouse",
-                                "s3"
-                            ]
-                        }
-                    ],
-                    "commit_name": "BTC/USD"
-                },
-                {
-                    "id": "ETHUSDT",
-                    "info": [
-                        {
-                            "channel": "ticker",
-                            "connector": "websocket",
-                            "websocket_consider_interval_sec": 5,
-                            "storages": [
-                                "terminal",
-                                "mysql",
-                                "elastic_search",
-                                "influxdb",
-                                "nats",
-                                "clickhouse",
-                                "s3"
-                            ]
-                        }
-                    ],
-                    "commit_name": "ETH/USD"
-                },
-                {
-                    "id": "LTCUSDT",
-                    "info": [
-                        {
-                            "channel": "ticker",
-                            "connector": "rest",
-                            "rest_ping_interval_sec": 10,
-                            "storages": [
-                                "mysql",
-                                "elastic_search",
-                                "influxdb",
-                                "nats",
-                                "clickhouse",
-                                "s3"
-                            ]
-                        },
-                        {
-                            "channel": "trade",
-                            "connector": "rest",
-                            "rest_ping_interval_sec": 10,
-                            "storages": [
-                                "terminal",
-                                "mysql",
-                                "elastic_search",
-                                "influxdb",
-                                "nats",
-                                "clickhouse",
-                                "s3"
-                            ]
-                        }
-                    ],
-                    "commit_name": "LTC/USD"
-                }
-            ],
-            "retry": {
-                "number": 0,
-                "gap_sec": 0,
-                "reset_sec": 0
-            }
-        },
-        {
             "name": "huobi",
             "markets": [
                 {
@@ -2527,6 +2432,101 @@
                 },
                 {
                     "id": "LTC-USD",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 10,
+                            "storages": [
+                                "mysql",
+                                "elastic_search",
+                                "influxdb",
+                                "nats",
+                                "clickhouse",
+                                "s3"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "rest",
+                            "rest_ping_interval_sec": 10,
+                            "storages": [
+                                "terminal",
+                                "mysql",
+                                "elastic_search",
+                                "influxdb",
+                                "nats",
+                                "clickhouse",
+                                "s3"
+                            ]
+                        }
+                    ],
+                    "commit_name": "LTC/USD"
+                }
+            ],
+            "retry": {
+                "number": 0,
+                "gap_sec": 0,
+                "reset_sec": 0
+            }
+        },
+        {
+            "name": "binance-tr",
+            "markets": [
+                {
+                    "id": "BTC_USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "mysql",
+                                "elastic_search",
+                                "influxdb",
+                                "nats",
+                                "clickhouse",
+                                "s3"
+                            ]
+                        },
+                        {
+                            "channel": "trade",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 0,
+                            "storages": [
+                                "mysql",
+                                "elastic_search",
+                                "influxdb",
+                                "nats",
+                                "clickhouse",
+                                "s3"
+                            ]
+                        }
+                    ],
+                    "commit_name": "BTC/USD"
+                },
+                {
+                    "id": "ETH_USDT",
+                    "info": [
+                        {
+                            "channel": "ticker",
+                            "connector": "websocket",
+                            "websocket_consider_interval_sec": 5,
+                            "storages": [
+                                "terminal",
+                                "mysql",
+                                "elastic_search",
+                                "influxdb",
+                                "nats",
+                                "clickhouse",
+                                "s3"
+                            ]
+                        }
+                    ],
+                    "commit_name": "ETH/USD"
+                },
+                {
+                    "id": "LTC_BUSD",
                     "info": [
                         {
                             "channel": "ticker",

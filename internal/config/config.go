@@ -21,11 +21,6 @@ const (
 	// BitfinexRESTBaseURL is the bitfinex exchange base REST url.
 	BitfinexRESTBaseURL = "https://api-pub.bitfinex.com/v2/"
 
-	// BHEXWebsocketURL is the bhex exchange websocket url.
-	BHEXWebsocketURL = "wss://wsapi.bhex.com/openapi/quote/ws/v2"
-	// BHEXRESTBaseURL is the bhex exchange base REST url.
-	BHEXRESTBaseURL = "https://api.bhex.com/"
-
 	// HuobiWebsocketURL is the huobi exchange websocket url.
 	HuobiWebsocketURL = "wss://api.huobi.pro/ws"
 	// HuobiRESTBaseURL is the huobi exchange base REST url.
@@ -133,6 +128,13 @@ const (
 	CoinFlexWebsocketURL = "wss://v2api.coinflex.com/v2/websocket"
 	// CoinFlexRESTBaseURL is the coinflex exchange base REST url.
 	CoinFlexRESTBaseURL = "https://v2api.coinflex.com/v2/"
+
+	// BinanceTRWebsocketURL is the binance-tr exchange websocket url.
+	BinanceTRWebsocketURL = "wss://stream-cloud.trbinance.com/ws"
+	// BinanceTRRESTBaseURL is the binance-tr exchange base REST url.
+	BinanceTRRESTBaseURL = "https://api.binance.me/api/v3/"
+	// BinanceTRRESTMktBaseURL is the binance-tr exchange base REST market url.
+	BinanceTRRESTMktBaseURL = "https://www.trbinance.com/open/v1/"
 )
 
 // Config contains config values for the app.

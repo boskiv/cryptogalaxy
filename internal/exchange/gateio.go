@@ -389,7 +389,7 @@ func (g *gateio) subWsChannel(market string, channel string, id int) error {
 		Event:   "subscribe",
 		Payload: [1]string{market},
 	}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

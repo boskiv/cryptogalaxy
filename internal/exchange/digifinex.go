@@ -403,7 +403,7 @@ func (d *digifinex) pingWs(ctx context.Context) error {
 				ID:     time.Now().Unix(),
 				Method: "server.ping",
 			}
-			frame, err := jsoniter.Marshal(sub)
+			frame, err := jsoniter.Marshal(&sub)
 			if err != nil {
 				logErrStack(err)
 				return err
@@ -433,7 +433,7 @@ func (d *digifinex) subWsChannel(market string, channel string, id int) error {
 		Method: channel + ".subscribe",
 		Params: [1]string{market},
 	}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

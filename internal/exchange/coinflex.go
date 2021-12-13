@@ -403,7 +403,7 @@ func (c *coinFlex) subWsChannel(market string, channel string) error {
 		Op: "subscribe",
 	}
 	sub.Args = [1]string{channel}
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err

@@ -92,7 +92,7 @@ func (e *ElasticSearch) CommitTickers(appCtx context.Context, data []Ticker) err
 			Timestamp: ticker.Timestamp,
 			CreatedAt: time.Now().UTC(),
 		}
-		esBytes, err := jsoniter.Marshal(ed)
+		esBytes, err := jsoniter.Marshal(&ed)
 		if err != nil {
 			return err
 		}
@@ -141,7 +141,7 @@ func (e *ElasticSearch) CommitTrades(appCtx context.Context, data []Trade) error
 			Timestamp: trade.Timestamp,
 			CreatedAt: time.Now().UTC(),
 		}
-		esBytes, err := jsoniter.Marshal(ed)
+		esBytes, err := jsoniter.Marshal(&ed)
 		if err != nil {
 			return err
 		}

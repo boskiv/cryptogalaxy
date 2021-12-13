@@ -371,7 +371,7 @@ func (b *bitstamp) subWsChannel(market string) error {
 		Event: "bts:subscribe",
 	}
 	sub.Data.Channel = "live_trades_" + market
-	frame, err := jsoniter.Marshal(sub)
+	frame, err := jsoniter.Marshal(&sub)
 	if err != nil {
 		logErrStack(err)
 		return err
