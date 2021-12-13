@@ -17,6 +17,9 @@ linters-settings:
       - paramTypeCombine
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
+  gosec:
+    excludes:
+      - G101
   govet:
     check-shadowing: true
     settings:
