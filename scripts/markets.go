@@ -643,6 +643,73 @@ func main() {
 	w.Flush()
 	fmt.Println("got market info from Binance TR")
 
+	// Cryptodot-Com exchange.
+	resp, err = http.Get(config.CryptodotComRESTBaseURL + "get-instruments")
+	if err != nil {
+		log.Error().Err(err).Str("exchange", "cryptodot-com").Msg("exchange request for markets")
+		return
+	}
+	cryptodotComMarkets := cryptodotComResp{}
+	if err = jsoniter.NewDecoder(resp.Body).Decode(&cryptodotComMarkets); err != nil {
+		log.Error().Err(err).Str("exchange", "cryptodot-com").Msg("convert markets response")
+		return
+	}
+	resp.Body.Close()
+	for _, record := range cryptodotComMarkets.Result.Instruments {
+		if err = w.Write([]string{"cryptodot-com", record.Name}); err != nil {
+			log.Error().Err(err).Str("exchange", "cryptodot-com").Msg("writing markets to csv")
+			return
+		}
+	}
+	w.Flush()
+	fmt.Println("got market info from Crypto.com Exchange")
+
+	// Fmfwio exchange.
+	resp, err = http.Get(config.FmfwioRESTBaseURL + "symbol")
+	if err != nil {
+		log.Error().Err(err).Str("exchange", "fmfwio").Msg("exchange request for markets")
+		return
+	}
+	fmfwioMarkets := make(map[string]fmfwioResp)
+	if err = jsoniter.NewDecoder(resp.Body).Decode(&fmfwioMarkets); err != nil {
+		log.Error().Err(err).Str("exchange", "fmfwio").Msg("convert markets response")
+		return
+	}
+	resp.Body.Close()
+	for mkt, record := range fmfwioMarkets {
+		if record.Type == "spot" {
+			if err = w.Write([]string{"fmfwio", mkt}); err != nil {
+				log.Error().Err(err).Str("exchange", "fmfwio").Msg("writing markets to csv")
+				return
+			}
+		}
+	}
+	w.Flush()
+	fmt.Println("got market info from FMFW.io")
+
+	// Changelly Pro exchange.
+	resp, err = http.Get(config.ChangellyProRESTBaseURL + "symbol")
+	if err != nil {
+		log.Error().Err(err).Str("exchange", "changelly-pro").Msg("exchange request for markets")
+		return
+	}
+	changellyProMarkets := make(map[string]changellyProResp)
+	if err = jsoniter.NewDecoder(resp.Body).Decode(&changellyProMarkets); err != nil {
+		log.Error().Err(err).Str("exchange", "changelly-pro").Msg("convert markets response")
+		return
+	}
+	resp.Body.Close()
+	for mkt, record := range changellyProMarkets {
+		if record.Type == "spot" {
+			if err = w.Write([]string{"changelly-pro", mkt}); err != nil {
+				log.Error().Err(err).Str("exchange", "changelly-pro").Msg("writing markets to csv")
+				return
+			}
+		}
+	}
+	w.Flush()
+	fmt.Println("got market info from Changelly Pro")
+
 	fmt.Println("CSV file generated successfully at ./examples/markets.csv")
 }
 
@@ -824,4 +891,22 @@ type binanceTRList struct {
 	Type   int    `json:"type"`
 	Symbol string `json:"symbol"`
 	Status int    `json:"spotTradingEnable"`
+}
+
+type cryptodotComResp struct {
+	Result cryptodotComRespRes `json:"result"`
+}
+type cryptodotComRespRes struct {
+	Instruments []cryptodotComRespInst `json:"instruments"`
+}
+type cryptodotComRespInst struct {
+	Name string `json:"instrument_name"`
+}
+
+type fmfwioResp struct {
+	Type string `json:"type"`
+}
+
+type changellyProResp struct {
+	Type string `json:"type"`
 }

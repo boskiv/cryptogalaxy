@@ -2711,7 +2711,262 @@ func TestCryptogalaxy(t *testing.T) {
 		}
 	}
 
-	if ftxFail || coinbaseProFail || binanceFail || bitfinexFail || huobiFail || gateioFail || kucoinFail || bitstampFail || bybitFail || probitFail || geminiFail || bitmartFail || digifinexFail || ascendexFail || krakenFail || binanceUSFail || okexFail || ftxUSFail || hitBTCFail || aaxFail || bitrueFail || btseFail || mexoFail || bequantFail || lbankFail || coinFlexFail || binanceTRFail {
+	// Crypto.com exchange.
+	var cryptodotComFail bool
+
+	if enabledExchanges["cryptodot-com"] {
+		terTickers = make(map[string]storage.Ticker)
+		terTrades = make(map[string]storage.Trade)
+		mysqlTickers = make(map[string]storage.Ticker)
+		mysqlTrades = make(map[string]storage.Trade)
+		esTickers = make(map[string]storage.Ticker)
+		esTrades = make(map[string]storage.Trade)
+		influxTickers = make(map[string]storage.Ticker)
+		influxTrades = make(map[string]storage.Trade)
+		natsTickers = make(map[string]storage.Ticker)
+		natsTrades = make(map[string]storage.Trade)
+		clickHouseTickers = make(map[string]storage.Ticker)
+		clickHouseTrades = make(map[string]storage.Trade)
+		s3Tickers = s3AllTickers["cryptodot-com"]
+		s3Trades = s3AllTrades["cryptodot-com"]
+
+		if terStr {
+			err = readTerminal("cryptodot-com", terTickers, terTrades)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : cryptodot-com exchange function")
+				cryptodotComFail = true
+			}
+		}
+
+		if sqlStr && !cryptodotComFail {
+			err = readMySQL("cryptodot-com", mysqlTickers, mysqlTrades, mysql)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : cryptodot-com exchange function")
+				cryptodotComFail = true
+			}
+		}
+
+		if esStr && !cryptodotComFail {
+			err = readElasticSearch("cryptodot-com", esTickers, esTrades, es)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : cryptodot-com exchange function")
+				cryptodotComFail = true
+			}
+		}
+
+		if influxStr && !cryptodotComFail {
+			err = readInfluxDB("cryptodot-com", influxTickers, influxTrades, influx)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : cryptodot-com exchange function")
+				cryptodotComFail = true
+			}
+		}
+
+		if natsStr && !cryptodotComFail {
+			err = readNATS("cryptodot-com", natsTickers, natsTrades)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : cryptodot-com exchange function")
+				cryptodotComFail = true
+			}
+		}
+
+		if clickHouseStr && !cryptodotComFail {
+			err = readClickHouse("cryptodot-com", clickHouseTickers, clickHouseTrades, clickhouse)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : cryptodot-com exchange function")
+				cryptodotComFail = true
+			}
+		}
+
+		if !cryptodotComFail {
+			err = verifyData("cryptodot-com", terTickers, terTrades, mysqlTickers, mysqlTrades, esTickers, esTrades, influxTickers, influxTrades, natsTickers, natsTrades, clickHouseTickers, clickHouseTrades, s3Tickers, s3Trades, &cfg)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : cryptodot-com exchange function")
+				cryptodotComFail = true
+			} else {
+				t.Log("SUCCESS : cryptodot-com exchange function")
+			}
+		}
+	}
+
+	// FMFW.io exchange.
+	var fmfwioFail bool
+
+	if enabledExchanges["fmfwio"] {
+		terTickers = make(map[string]storage.Ticker)
+		terTrades = make(map[string]storage.Trade)
+		mysqlTickers = make(map[string]storage.Ticker)
+		mysqlTrades = make(map[string]storage.Trade)
+		esTickers = make(map[string]storage.Ticker)
+		esTrades = make(map[string]storage.Trade)
+		influxTickers = make(map[string]storage.Ticker)
+		influxTrades = make(map[string]storage.Trade)
+		natsTickers = make(map[string]storage.Ticker)
+		natsTrades = make(map[string]storage.Trade)
+		clickHouseTickers = make(map[string]storage.Ticker)
+		clickHouseTrades = make(map[string]storage.Trade)
+		s3Tickers = s3AllTickers["fmfwio"]
+		s3Trades = s3AllTrades["fmfwio"]
+
+		if terStr {
+			err = readTerminal("fmfwio", terTickers, terTrades)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : fmfwio exchange function")
+				fmfwioFail = true
+			}
+		}
+
+		if sqlStr && !fmfwioFail {
+			err = readMySQL("fmfwio", mysqlTickers, mysqlTrades, mysql)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : fmfwio exchange function")
+				fmfwioFail = true
+			}
+		}
+
+		if esStr && !fmfwioFail {
+			err = readElasticSearch("fmfwio", esTickers, esTrades, es)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : fmfwio exchange function")
+				fmfwioFail = true
+			}
+		}
+
+		if influxStr && !fmfwioFail {
+			err = readInfluxDB("fmfwio", influxTickers, influxTrades, influx)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : fmfwio exchange function")
+				fmfwioFail = true
+			}
+		}
+
+		if natsStr && !fmfwioFail {
+			err = readNATS("fmfwio", natsTickers, natsTrades)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : fmfwio exchange function")
+				fmfwioFail = true
+			}
+		}
+
+		if clickHouseStr && !fmfwioFail {
+			err = readClickHouse("fmfwio", clickHouseTickers, clickHouseTrades, clickhouse)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : fmfwio exchange function")
+				fmfwioFail = true
+			}
+		}
+
+		if !fmfwioFail {
+			err = verifyData("fmfwio", terTickers, terTrades, mysqlTickers, mysqlTrades, esTickers, esTrades, influxTickers, influxTrades, natsTickers, natsTrades, clickHouseTickers, clickHouseTrades, s3Tickers, s3Trades, &cfg)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : fmfwio exchange function")
+				fmfwioFail = true
+			} else {
+				t.Log("SUCCESS : fmfwio exchange function")
+			}
+		}
+	}
+
+	// Changelly Pro exchange.
+	var changellyProFail bool
+
+	if enabledExchanges["changelly-pro"] {
+		terTickers = make(map[string]storage.Ticker)
+		terTrades = make(map[string]storage.Trade)
+		mysqlTickers = make(map[string]storage.Ticker)
+		mysqlTrades = make(map[string]storage.Trade)
+		esTickers = make(map[string]storage.Ticker)
+		esTrades = make(map[string]storage.Trade)
+		influxTickers = make(map[string]storage.Ticker)
+		influxTrades = make(map[string]storage.Trade)
+		natsTickers = make(map[string]storage.Ticker)
+		natsTrades = make(map[string]storage.Trade)
+		clickHouseTickers = make(map[string]storage.Ticker)
+		clickHouseTrades = make(map[string]storage.Trade)
+		s3Tickers = s3AllTickers["changelly-pro"]
+		s3Trades = s3AllTrades["changelly-pro"]
+
+		if terStr {
+			err = readTerminal("changelly-pro", terTickers, terTrades)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : changelly-pro exchange function")
+				changellyProFail = true
+			}
+		}
+
+		if sqlStr && !changellyProFail {
+			err = readMySQL("changelly-pro", mysqlTickers, mysqlTrades, mysql)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : changelly-pro exchange function")
+				changellyProFail = true
+			}
+		}
+
+		if esStr && !changellyProFail {
+			err = readElasticSearch("changelly-pro", esTickers, esTrades, es)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : changelly-pro exchange function")
+				changellyProFail = true
+			}
+		}
+
+		if influxStr && !changellyProFail {
+			err = readInfluxDB("changelly-pro", influxTickers, influxTrades, influx)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : changelly-pro exchange function")
+				changellyProFail = true
+			}
+		}
+
+		if natsStr && !changellyProFail {
+			err = readNATS("changelly-pro", natsTickers, natsTrades)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : changelly-pro exchange function")
+				changellyProFail = true
+			}
+		}
+
+		if clickHouseStr && !changellyProFail {
+			err = readClickHouse("changelly-pro", clickHouseTickers, clickHouseTrades, clickhouse)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : changelly-pro exchange function")
+				changellyProFail = true
+			}
+		}
+
+		if !changellyProFail {
+			err = verifyData("changelly-pro", terTickers, terTrades, mysqlTickers, mysqlTrades, esTickers, esTrades, influxTickers, influxTrades, natsTickers, natsTrades, clickHouseTickers, clickHouseTrades, s3Tickers, s3Trades, &cfg)
+			if err != nil {
+				t.Log("ERROR : " + err.Error())
+				t.Error("FAILURE : changelly-pro exchange function")
+				changellyProFail = true
+			} else {
+				t.Log("SUCCESS : changelly-pro exchange function")
+			}
+		}
+	}
+
+	if ftxFail || coinbaseProFail || binanceFail || bitfinexFail || huobiFail || gateioFail || kucoinFail || bitstampFail || bybitFail || probitFail || geminiFail || bitmartFail || digifinexFail || ascendexFail || krakenFail || binanceUSFail || okexFail || ftxUSFail || hitBTCFail || aaxFail || bitrueFail || btseFail || mexoFail || bequantFail || lbankFail || coinFlexFail || binanceTRFail || cryptodotComFail || fmfwioFail || changellyProFail {
 		t.Log("INFO : May be 2 minute app execution time is not good enough to get the data. Try to increase it before actual debugging.")
 	}
 }

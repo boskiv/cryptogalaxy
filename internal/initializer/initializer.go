@@ -278,6 +278,18 @@ func Start(mainCtx context.Context, cfg *config.Config) error {
 			appErrGroup.Go(func() error {
 				return exchange.StartBinanceTR(appCtx, markets, &retry, &cfg.Connection)
 			})
+		case "cryptodot-com":
+			appErrGroup.Go(func() error {
+				return exchange.StartCryptodotCom(appCtx, markets, &retry, &cfg.Connection)
+			})
+		case "fmfwio":
+			appErrGroup.Go(func() error {
+				return exchange.StartFmfwio(appCtx, markets, &retry, &cfg.Connection)
+			})
+		case "changelly-pro":
+			appErrGroup.Go(func() error {
+				return exchange.StartChangellyPro(appCtx, markets, &retry, &cfg.Connection)
+			})
 		}
 	}
 

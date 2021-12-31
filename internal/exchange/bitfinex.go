@@ -447,7 +447,6 @@ func (b *bitfinex) readWs(ctx context.Context) error {
 				// Keep a map of id to subscribed market channel as subsequent data frames only contain
 				// channel id, actual data and not the market info.
 				switch wr.Event {
-				case "hb":
 				case "subscribed":
 					channelInfo := make(map[string]string, 2)
 					channelInfo["market"] = wr.Symbol[1:]

@@ -135,6 +135,21 @@ const (
 	BinanceTRRESTBaseURL = "https://api.binance.me/api/v3/"
 	// BinanceTRRESTMktBaseURL is the binance-tr exchange base REST market url.
 	BinanceTRRESTMktBaseURL = "https://www.trbinance.com/open/v1/"
+
+	// CryptodotComWebsocketURL is the cryptodot-com exchange websocket url.
+	CryptodotComWebsocketURL = "wss://stream.crypto.com/v2/market"
+	// CryptodotComRESTBaseURL is the cryptodot-com exchange base REST url.
+	CryptodotComRESTBaseURL = "https://api.crypto.com/v2/public/"
+
+	// FmfwioWebsocketURL is the fmfwio exchange websocket url.
+	FmfwioWebsocketURL = "wss://api.fmfw.io/api/3/ws/public"
+	// FmfwioRESTBaseURL is the fmfwio exchange base REST url.
+	FmfwioRESTBaseURL = "https://api.fmfw.io/api/3/public/"
+
+	// ChangellyProWebsocketURL is the changelly-pro exchange websocket url.
+	ChangellyProWebsocketURL = "wss://api.pro.changelly.com/api/3/ws/public"
+	// ChangellyProRESTBaseURL is the changelly-pro exchange base REST url.
+	ChangellyProRESTBaseURL = "https://api.pro.changelly.com/api/3/public/"
 )
 
 // Config contains config values for the app.
